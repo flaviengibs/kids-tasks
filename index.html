@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Suivi d'Argent de Poche Famille</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter (pour une typographie moderne) -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     body {
@@ -28,9 +30,12 @@
       animation: fadeInScale 0.3s ease-out forwards;
     }
   </style>
+  <!-- React and ReactDOM CDNs -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX transformation in the browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Firebase JS SDKs -->
   <script type="module">
     // Firebase SDK for Web
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
@@ -40,7 +45,7 @@
       signOut,
       onAuthStateChanged,
       createUserWithEmailAndPassword,
-      signInWithCustomToken // Assurez-vous que signInWithCustomToken est importé
+      signInWithCustomToken
     } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
     import {
       getFirestore,
@@ -55,18 +60,17 @@
       arrayRemove,
       deleteDoc,
       addDoc,
-      getDocs // Assurez-vous que getDocs est importé
+      getDocs
     } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
     // Rendre les fonctions Firebase globales pour qu'elles soient accessibles dans le script type="text/babel"
-    // C'est une solution de contournement pour les environnements sans bundler
     window.initializeApp = initializeApp;
     window.getAuth = getAuth;
     window.signInWithEmailAndPassword = signInWithEmailAndPassword;
     window.signOut = signOut;
     window.onAuthStateChanged = onAuthStateChanged;
     window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
-    window.signInWithCustomToken = signInWithCustomToken; // Rendre disponible globalement
+    window.signInWithCustomToken = signInWithCustomToken;
     window.getFirestore = getFirestore;
     window.doc = doc;
     window.getDoc = getDoc;
@@ -79,7 +83,7 @@
     window.arrayRemove = arrayRemove;
     window.deleteDoc = deleteDoc;
     window.addDoc = addDoc;
-    window.getDocs = getDocs; // Rendre disponible globalement
+    window.getDocs = getDocs;
   </script>
 </head>
 <body>
@@ -88,15 +92,14 @@
 
   <script type="text/babel">
     // Firebase Configuration - REMPLACER PAR VOTRE CONFIG FIREBASE ICI
-const firebaseConfig = {
-  apiKey: "AIzaSyB6CzYe6Fu41lifg4lY6g77YG64ko9WDMI",
-  authDomain: "kidscagnotte.firebaseapp.com",
-  projectId: "kidscagnotte",
-  storageBucket: "kidscagnotte.firebasestorage.app",
-  messagingSenderId: "533044691595",
-  appId: "1:533044691595:web:03bfd7d1e02b86689dca8e",
-  measurementId: "G-49K7ZLSRD5"
-};
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
     // IMPORTANT: Make sure React and ReactDOM are available in this scope
     const React = window.React;
@@ -110,15 +113,10 @@ const firebaseConfig = {
       auth = window.getAuth(app);
     } catch (error) {
       console.error("Erreur lors de l'initialisation de Firebase:", error);
-      // Gérer l'erreur d'initialisation, par exemple afficher un message à l'utilisateur
     }
 
-    // Ces variables sont fournies par l'environnement Canvas, mais pour GitHub Pages, nous les définons ici
-    // Vous pouvez remplacer 'default-app-id' par un identifiant unique si vous le souhaitez pour votre application
-    // Mais l'ID du projet Firebase (`projectId`) est plus couramment utilisé comme identifiant unique
-    // dans Firestore pour les collections utilisateur `/artifacts/{projectId}/users/{userId}/...`
     const appId = firebaseConfig.projectId || 'default-app-id';
-    const initialAuthToken = null; // Pas de token initial fourni par GitHub Pages
+    const initialAuthToken = null;
 
     // Context d'authentification
     const AuthContext = React.createContext(null);
@@ -166,9 +164,9 @@ const firebaseConfig = {
       const [loading, setLoading] = React.useState(true); // État de chargement initial de l'authentification
       const [view, setView] = React.useState('login'); // 'login', 'adultDashboard', 'childProfile', 'childView'
       const [selectedChildId, setSelectedChildId] = React.useState(null); // ID de l'enfant sélectionné
+      const [parentUserIdForChildView, setParentUserIdForChildView] = React.useState(null); // ID du parent pour la vue enfant
       const [messageBox, setMessageBox] = React.useState({ message: '', onConfirm: null, onCancel: null, showCancel: false });
 
-      // Gère les messages pop-up
       const showMessage = (message, onConfirmCallback, onCancelCallback = null, showCancelButton = false) => {
         setMessageBox({ message, onConfirm: onConfirmCallback, onCancel: onCancelCallback, showCancel: showCancelButton });
       };
@@ -177,7 +175,6 @@ const firebaseConfig = {
         setMessageBox({ message: '', onConfirm: null, onCancel: null, showCancel: false });
       };
 
-      // Effet pour l'authentification initiale et le changement d'état
       React.useEffect(() => {
         const unsubscribe = window.onAuthStateChanged(auth, async (currentUser) => {
           if (currentUser) {
@@ -185,38 +182,37 @@ const firebaseConfig = {
             setUserId(currentUser.uid);
             setView('adultDashboard');
           } else {
-            // Si aucun utilisateur n'est connecté et l'authentification anonyme est désactivée,
-            // on passe directement à la page de connexion.
             setUser(null);
-            setUserId(null); // Assure que userId est null si non authentifié
+            setUserId(null);
             setView('login');
           }
           setLoading(false);
         });
 
-        // La logique signInWithCustomToken n'est pas pertinente pour GitHub Pages
-        // car __initial_auth_token n'est pas défini ici.
-        // C'était pour l'environnement Canvas.
-
         return () => unsubscribe();
-      }, []); // Dépendances vides pour n'exécuter qu'une fois
+      }, []);
 
       if (loading) {
         return <LoadingSpinner />;
       }
 
-      // Fonctions de navigation
-      const goToAdultDashboard = () => setView('adultDashboard');
+      const goToAdultDashboard = () => {
+        setParentUserIdForChildView(null); // Réinitialiser en quittant la vue enfant
+        setView('adultDashboard');
+      }
       const goToChildProfile = (id) => {
         setSelectedChildId(id);
+        setParentUserIdForChildView(userId); // Quand l'adulte va sur le profil de l'enfant, l'ID parent est l'ID de l'adulte connecté
         setView('childProfile');
       };
-      const goToChildView = (id) => {
+      const goToChildView = (id, parentId) => { // Accepte aussi l'ID du parent lors de la connexion enfant
         setSelectedChildId(id);
+        setParentUserIdForChildView(parentId); // Définir l'ID du parent pour la vue enfant
         setView('childView');
       };
       const goToLogin = () => {
         setSelectedChildId(null);
+        setParentUserIdForChildView(null); // Réinitialiser l'ID parent lors de la déconnexion
         setView('login');
       };
 
@@ -231,10 +227,11 @@ const firebaseConfig = {
         }
       };
 
-      // Context Provider pour l'authentification et les messages
       const authContextValue = {
         user,
         userId,
+        parentUserIdForChildView, // Ajouté au contexte
+        setParentUserIdForChildView, // Ajouté au contexte
         goToAdultDashboard,
         goToChildProfile,
         goToChildView,
@@ -251,7 +248,7 @@ const firebaseConfig = {
             {view === 'login' && <LoginPage />}
             {view === 'adultDashboard' && user && <AdultDashboard />}
             {view === 'childProfile' && user && selectedChildId && <ChildProfilePage childId={selectedChildId} />}
-            {view === 'childView' && selectedChildId && <ChildViewPage childId={selectedChildId} />}
+            {view === 'childView' && selectedChildId && parentUserIdForChildView && <ChildViewPage childId={selectedChildId} />}
           </div>
         </AuthContext.Provider>
       );
@@ -259,11 +256,12 @@ const firebaseConfig = {
 
     // Composant LoginPage
     const LoginPage = () => {
-      const { user, userId, goToChildView, showMessage, clearMessage } = React.useContext(AuthContext);
+      const { user, goToChildView, showMessage, clearMessage, setParentUserIdForChildView } = React.useContext(AuthContext);
       const [email, setEmail] = React.useState('');
       const [password, setPassword] = React.useState('');
       const [childPin, setChildPin] = React.useState('');
-      const [isAdultLogin, setIsAdultLogin] = React.useState(true); // true for adult, false for child
+      const [parentUserIdInput, setParentUserIdInput] = React.useState(''); // Nouveau champ pour l'ID parent
+      const [isAdultLogin, setIsAdultLogin] = React.useState(true);
       const [loading, setLoading] = React.useState(false);
 
       const handleAdultLogin = async (e) => {
@@ -271,7 +269,6 @@ const firebaseConfig = {
         setLoading(true);
         try {
           await window.signInWithEmailAndPassword(auth, email, password);
-          // L'onAuthStateChanged dans App.js gérera la navigation
         } catch (error) {
           console.error("Erreur de connexion adulte:", error);
           let errorMessage = "Échec de la connexion.";
@@ -293,15 +290,13 @@ const firebaseConfig = {
           const userCredential = await window.createUserWithEmailAndPassword(auth, email, password);
           const newUserId = userCredential.user.uid;
 
-          // Initialiser les données de l'adulte dans Firestore
           const userDocRef = window.doc(db, `artifacts/${appId}/users/${newUserId}`);
           await window.setDoc(userDocRef, {
             email: email,
             createdAt: new Date().toISOString(),
-            lastResetDate: new Date().toISOString().substring(0, 7) // Année-Mois
+            lastResetDate: new Date().toISOString().substring(0, 7)
           });
 
-          // Initialiser les tâches prédéfinies
           const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${newUserId}/settings/predefinedTasks`);
           await window.setDoc(predefinedTasksDocRef, {
             tasks: [
@@ -333,58 +328,40 @@ const firebaseConfig = {
         e.preventDefault();
         setLoading(true);
         try {
-            // Récupérer tous les utilisateurs (adultes) pour chercher les enfants
-            const usersRef = window.collection(db, `artifacts/${appId}/users`);
-            const usersSnapshot = await window.getDocs(usersRef);
-
-            let foundChild = null;
-            let parentUserId = null;
-
-            for (const userDoc of usersSnapshot.docs) {
-                const adultId = userDoc.id;
-                const childrenRef = window.collection(db, `artifacts/${appId}/users/${adultId}/children`);
-                const childrenSnapshot = await window.getDocs(childrenRef);
-
-                for (const childDoc of childrenSnapshot.docs) {
-                    const childData = childDoc.data();
-                    if (childData.pin === childPin) {
-                        foundChild = { id: childDoc.id, ...childData };
-                        parentUserId = adultId; // Garder l'ID de l'adulte parent
-                        break; // Enfant trouvé, pas besoin de chercher plus loin
-                    }
-                }
-                if (foundChild) break; // Sortir de la boucle des utilisateurs si un enfant est trouvé
+            if (!parentUserIdInput) {
+                showMessage("Veuillez entrer l'ID du parent.", clearMessage);
+                setLoading(false);
+                return;
             }
 
-            if (foundChild && parentUserId) {
-                // Changer le userId dans le contexte pour qu'il corresponde au parent de l'enfant
-                // Ceci est crucial pour que ChildViewPage puisse charger les données du bon parent
-                // Note: Le user (objet d'authentification) restera null pour l'enfant,
-                // mais userId sera défini pour la récupération des données Firestore.
+            const childrenRef = window.collection(db, `artifacts/${appId}/users/${parentUserIdInput}/children`);
+            const childrenSnapshot = await window.getDocs(childrenRef);
+
+            let foundChild = null;
+            childrenSnapshot.forEach(childDoc => {
+                const childData = childDoc.data();
+                if (childData.pin === childPin) {
+                    foundChild = { id: childDoc.id, ...childData };
+                }
+            });
+
+            if (foundChild) {
+                setParentUserIdForChildView(parentUserIdInput); // Définit l'ID du parent dans le contexte de l'application
                 showMessage(`Bienvenue ${foundChild.name} !`, () => {
                     clearMessage();
-                    // Nous devons mettre à jour l'état userId dans App.js
-                    // Cela nécessite un mécanisme pour le faire depuis LoginPage.
-                    // Pour l'instant, on suppose que l'App.js va recharger la vue ChildViewPage
-                    // avec le childId et que ChildViewPage utilisera le userId correct
-                    // qui est implicitement celui de l'adulte qui a créé l'enfant.
-                    // Une approche plus robuste serait de passer un userId temporaire
-                    // ou de reconfigurer le contexte d'auth pour cet enfant.
-                    // Pour simplifier ici, ChildViewPage utilisera l'ID du parent.
-                    goToChildView(foundChild.id);
+                    goToChildView(foundChild.id, parentUserIdInput); // Passe l'ID parent à goToChildView
                 });
             } else {
-                showMessage("PIN enfant incorrect ou non trouvé.", clearMessage);
+                showMessage("PIN enfant ou ID parent incorrect.", clearMessage);
             }
         } catch (error) {
             console.error("Erreur de connexion enfant:", error);
             showMessage("Erreur lors de la connexion enfant. Veuillez réessayer.", clearMessage);
         } finally {
-            setLoading(false);
+          setLoading(false);
         }
-    };
+      };
 
-      // Afficher l'ID de l'utilisateur actuel pour la fonctionnalité multi-utilisateur
       const displayUserId = user ? user.uid : "Non connecté";
 
       return (
@@ -462,11 +439,25 @@ const firebaseConfig = {
             ) : (
               <form onSubmit={handleChildLogin} className="space-y-4">
                 <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="parentUserIdInput">
+                    ID Parent
+                  </label>
+                  <input
+                    type="text"
+                    id="parentUserIdInput"
+                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="L'ID de l'adulte (sur son tableau de bord)"
+                    value={parentUserIdInput}
+                    onChange={(e) => setParentUserIdInput(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
                   <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="childPin">
                     Code PIN Enfant
                   </label>
                   <input
-                    type="password" // Use password type for PIN for privacy
+                    type="password"
                     id="childPin"
                     className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="Ex: 1234"
@@ -482,9 +473,6 @@ const firebaseConfig = {
                 >
                   {loading ? 'Connexion...' : 'Connexion Enfant'}
                 </button>
-                <p className="text-sm text-gray-600 text-center mt-4">
-                  Connectez-vous en tant qu'adulte pour gérer les comptes enfants.
-                </p>
               </form>
             )}
             <p className="text-xs text-gray-500 text-center mt-6 break-words">
@@ -505,7 +493,6 @@ const firebaseConfig = {
       const [newChildPin, setNewChildPin] = React.useState('');
       const [loading, setLoading] = React.useState(true);
 
-      // Écoute les changements des enfants en temps réel
       React.useEffect(() => {
         if (!userId) {
           setLoading(false);
@@ -523,21 +510,18 @@ const firebaseConfig = {
           setLoading(false);
         });
 
-        // Vérifier et réinitialiser les cagnottes mensuellement
         const checkMonthlyReset = async () => {
           const settingsDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/lastResetDate`);
           try {
             const docSnap = await window.getDoc(settingsDocRef);
             let lastResetDate = docSnap.exists() ? docSnap.data().date : null;
-            const currentMonth = new Date().toISOString().substring(0, 7); // Année-Mois
+            const currentMonth = new Date().toISOString().substring(0, 7);
 
             if (!lastResetDate || lastResetDate !== currentMonth) {
               console.log("Réinitialisation mensuelle nécessaire.");
-              // Mettre à jour la date de reset
               await window.setDoc(settingsDocRef, { date: currentMonth });
 
-              // Réinitialiser les tâches effectuées pour tous les enfants
-              const childDocsSnapshot = await window.getDocs(childrenColRef); // Utilisation de getDocs pour itérer sur les enfants
+              const childDocsSnapshot = await window.getDocs(childrenColRef);
               childDocsSnapshot.forEach(async (childDoc) => {
                 const childData = childDoc.data();
                 if (typeof childData.currentAllowance === 'number' && Array.isArray(childData.tasksCompletedThisMonth)) {
@@ -556,7 +540,7 @@ const firebaseConfig = {
         checkMonthlyReset();
 
         return () => unsubscribeChildren();
-      }, [userId]); // S'exécute quand userId change
+      }, [userId]);
 
       const handleAddChild = async (e) => {
         e.preventDefault();
@@ -578,7 +562,7 @@ const firebaseConfig = {
             name: newChildName,
             age: parseInt(newChildAge),
             pin: newChildPin,
-            currentAllowance: 0, // Démarrer avec 0€ dû
+            currentAllowance: 0,
             tasksCompletedThisMonth: [],
             customTasks: []
           });
@@ -611,7 +595,7 @@ const firebaseConfig = {
             }
           },
           clearMessage,
-          true // Show cancel button
+          true
         );
       };
 
@@ -768,7 +752,6 @@ const firebaseConfig = {
           return;
         }
 
-        // Écoute les changements de l'enfant spécifique
         const childDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
         const unsubscribeChild = window.onSnapshot(childDocRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -783,13 +766,12 @@ const firebaseConfig = {
           setLoading(false);
         });
 
-        // Écoute les changements des tâches prédéfinies
         const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/predefinedTasks`);
         const unsubscribePredefinedTasks = window.onSnapshot(predefinedTasksDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const tasks = docSnap.data().tasks || [];
             setPredefinedTasks(tasks);
-            setEditedPredefinedTasks([...tasks]); // Initialise pour l'édition
+            setEditedPredefinedTasks([...tasks]);
           }
         }, (error) => {
           console.error("Erreur lors de la récupération des tâches prédéfinies:", error);
@@ -917,7 +899,6 @@ const firebaseConfig = {
         );
       }
 
-      // Filtrer les tâches prédéfinies en fonction de l'âge de l'enfant
       const ageFilteredTasks = predefinedTasks.filter(task =>
         child.age >= task.ageMin && child.age <= task.ageMax
       );
@@ -1120,73 +1101,60 @@ const firebaseConfig = {
 
     // Composant ChildViewPage (vue enfant)
     const ChildViewPage = ({ childId }) => {
-      // Le userId doit être l'ID de l'adulte parent de l'enfant qui se connecte.
-      // Il n'y a pas d'authentification Firebase directe pour l'enfant ici,
-      // donc le "userId" sera déterminé par la recherche du PIN.
-      const [parentUserId, setParentUserId] = React.useState(null);
-      const { goToLogin, showMessage, clearMessage } = React.useContext(AuthContext);
+      // parentUserIdForChildView est maintenant passé via le contexte depuis App.js
+      const { parentUserIdForChildView, goToLogin, showMessage, clearMessage } = React.useContext(AuthContext);
       const [child, setChild] = React.useState(null);
       const [predefinedTasks, setPredefinedTasks] = React.useState([]);
       const [loading, setLoading] = React.useState(true);
 
       React.useEffect(() => {
-        const fetchChildAndParent = async () => {
+        const fetchChildData = async () => {
           setLoading(true);
           try {
-            const usersRef = window.collection(db, `artifacts/${appId}/users`);
-            const usersSnapshot = await window.getDocs(usersRef);
-
-            let foundChildData = null;
-            let currentParentId = null;
-
-            for (const userDoc of usersSnapshot.docs) {
-              const adultId = userDoc.id;
-              const childrenRef = window.collection(db, `artifacts/${appId}/users/${adultId}/children`);
-              const childrenSnapshot = await window.getDocs(childrenRef);
-
-              for (const childDoc of childrenSnapshot.docs) {
-                if (childDoc.id === childId) {
-                  foundChildData = { id: childDoc.id, ...childDoc.data() };
-                  currentParentId = adultId;
-                  break;
-                }
-              }
-              if (foundChildData) break;
+            // S'assurer que parentUserIdForChildView est disponible pour la requête Firestore
+            if (!parentUserIdForChildView || !childId) {
+              showMessage("ID parent ou enfant manquant. Veuillez vous reconnecter.", goToLogin);
+              setLoading(false);
+              return;
             }
 
-            if (foundChildData && currentParentId) {
-              setChild(foundChildData);
-              setParentUserId(currentParentId); // Définir l'ID du parent
+            const childDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdForChildView}/children/${childId}`);
+            const docSnap = await window.getDoc(childDocRef);
 
-              // Maintenant, charger les tâches prédéfinies en utilisant l'ID du parent
-              const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${currentParentId}/settings/predefinedTasks`);
-              const docSnap = await window.getDoc(predefinedTasksDocRef);
-              if (docSnap.exists()) {
-                setPredefinedTasks(docSnap.data().tasks || []);
+            if (docSnap.exists()) {
+              setChild({ id: docSnap.id, ...docSnap.data() });
+
+              const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdForChildView}/settings/predefinedTasks`);
+              const tasksSnap = await window.getDoc(predefinedTasksDocRef);
+              if (tasksSnap.exists()) {
+                setPredefinedTasks(tasksSnap.data().tasks || []);
               }
             } else {
               showMessage("Votre compte enfant n'a pas été trouvé. Veuillez contacter un adulte.", goToLogin);
             }
           } catch (error) {
-            console.error("Erreur lors de la récupération des données enfant/parent:", error);
+            console.error("Erreur lors de la récupération des données enfant:", error);
             showMessage("Erreur de chargement de votre profil. Veuillez réessayer.", goToLogin);
           } finally {
             setLoading(false);
           }
         };
 
-        if (childId) {
-          fetchChildAndParent();
+        // Déclencher la récupération des données seulement si childId et parentUserIdForChildView sont présents
+        if (childId && parentUserIdForChildView) {
+          fetchChildData();
+        } else {
+          setLoading(false); // Arrêter le chargement si les données ne sont pas prêtes
         }
 
-      }, [childId]);
+      }, [childId, parentUserIdForChildView, showMessage, goToLogin]);
 
 
       if (loading) {
         return <LoadingSpinner />;
       }
 
-      if (!child || !parentUserId) {
+      if (!child || !parentUserIdForChildView) { // Vérifier aussi parentUserIdForChildView ici
         return (
           <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <p className="text-xl text-gray-700">Impossible de charger le compte enfant.</p>
