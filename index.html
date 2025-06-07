@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suivi d'Argent de Poche Famille</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter (pour une typographie moderne) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    /* Animations personnalisées pour les modales */
+    @keyframes fadeInScale {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    .animate-fade-in-up {
+      animation: fadeInScale 0.3s ease-out forwards;
+    }
+  </style>
+  <!-- React and ReactDOM CDNs -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX transformation in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Firebase JS SDKs -->
+  <script type="module">
+    // Firebase SDK for Web
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      createUserWithEmailAndPassword,
+      // signInAnonymously, // <-- Retire signInAnonymously
+      signInWithCustomToken // Assurez-vous que signInWithCustomToken est importé
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      collection,
+      query,
+      onSnapshot,
+      arrayUnion,
+      arrayRemove,
+      deleteDoc,
+      addDoc,
+      getDocs // Assurez-vous que getDocs est importé
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    // Rendre les fonctions Firebase globales pour qu'elles soient accessibles dans le script type="text/babel"
+    // C'est une solution de contournement pour les environnements sans bundler
+    window.initializeApp = initializeApp;
+    window.getAuth = getAuth;
+    window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+    window.signOut = signOut;
+    window.onAuthStateChanged = onAuthStateChanged;
+    window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+    // window.signInAnonymously = signInAnonymously; // Non exposé globalement car désactivé
+    window.signInWithCustomToken = signInWithCustomToken; // Rendre disponible globalement
+    window.getFirestore = getFirestore;
+    window.doc = doc;
+    window.getDoc = getDoc;
+    window.setDoc = setDoc;
+    window.updateDoc = updateDoc;
+    window.collection = collection;
+    window.query = query;
+    window.onSnapshot = onSnapshot;
+    window.arrayUnion = arrayUnion;
+    window.arrayRemove = arrayRemove;
+    window.deleteDoc = deleteDoc;
+    window.addDoc = addDoc;
+    window.getDocs = getDocs; // Rendre disponible globalement
+  </script>
+</head>
+<body>
+  <noscript>Vous devez activer JavaScript pour exécuter cette application.</noscript>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // Firebase Configuration - REMPLACER PAR VOTRE CONFIG FIREBASE ICI
+const firebaseConfig = {
+  apiKey: "AIzaSyB6CzYe6Fu41lifg4lY6g77YG64ko9WDMI",
+  authDomain: "kidscagnotte.firebaseapp.com",
+  projectId: "kidscagnotte",
+  storageBucket: "kidscagnotte.firebasestorage.app",
+  messagingSenderId: "533044691595",
+  appId: "1:533044691595:web:03bfd7d1e02b86689dca8e",
+  measurementId: "G-49K7ZLSRD5"
+};
+
+    // IMPORTANT: Make sure React and ReactDOM are available in this scope
+    const React = window.React;
+    const ReactDOM = window.ReactDOM;
+
+    // Initialisation de Firebase
+    let app, db, auth;
+    try {
+      app = window.initializeApp(firebaseConfig);
+      db = window.getFirestore(app);
+      auth = window.getAuth(app);
+    } catch (error) {
+      console.error("Erreur lors de l'initialisation de Firebase:", error);
+      // Gérer l'erreur d'initialisation, par exemple afficher un message à l'utilisateur
+    }
+
+    // Ces variables sont fournies par l'environnement Canvas, mais pour GitHub Pages, nous les définissons ici
+    // Vous pouvez remplacer 'default-app-id' par un identifiant unique si vous le souhaitez pour votre application
+    // Mais l'ID du projet Firebase (`projectId`) est plus couramment utilisé comme identifiant unique
+    // dans Firestore pour les collections utilisateur `/artifacts/{projectId}/users/{userId}/...`
+    const appId = firebaseConfig.projectId || 'default-app-id';
+    const initialAuthToken = null; // Pas de token initial fourni par GitHub Pages
+
+    // Context d'authentification
+    const AuthContext = React.createContext(null);
+
+    // Composant pour le message box (remplace alert/confirm)
+    const MessageBox = ({ message, onConfirm, onCancel, showCancel = false }) => {
+      if (!message) return null;
+
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+            <p className="text-lg font-semibold mb-4">{message}</p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => onConfirm()}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300 shadow-md"
+              >
+                OK
+              </button>
+              {showCancel && (
+                <button
+                  onClick={() => onCancel()}
+                  className="px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-300 shadow-md"
+                >
+                  Annuler
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Composant de Spinner de chargement
+    const LoadingSpinner = () => (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+      </div>
+    );
+
+    // Composant principal de l'application
+    function App() {
+      const [user, setUser] = React.useState(null); // Utilisateur Firebase authentifié (adulte)
+      const [userId, setUserId] = React.useState(null); // ID de l'utilisateur Firebase (adulte)
+      const [loading, setLoading] = React.useState(true); // État de chargement initial de l'authentification
+      const [view, setView] = React.useState('login'); // 'login', 'adultDashboard', 'childProfile', 'childView'
+      const [selectedChildId, setSelectedChildId] = React.useState(null); // ID de l'enfant sélectionné
+      const [messageBox, setMessageBox] = React.useState({ message: '', onConfirm: null, onCancel: null, showCancel: false });
+
+      // Gère les messages pop-up
+      const showMessage = (message, onConfirmCallback, onCancelCallback = null, showCancelButton = false) => {
+        setMessageBox({ message, onConfirm: onConfirmCallback, onCancel: onCancelCallback, showCancel: showCancelButton });
+      };
+
+      const clearMessage = () => {
+        setMessageBox({ message: '', onConfirm: null, onCancel: null, showCancel: false });
+      };
+
+      // Effet pour l'authentification initiale et le changement d'état
+      React.useEffect(() => {
+        const unsubscribe = window.onAuthStateChanged(auth, async (currentUser) => {
+          if (currentUser) {
+            setUser(currentUser);
+            setUserId(currentUser.uid);
+            setView('adultDashboard');
+          } else {
+            // Si aucun utilisateur n'est connecté et l'authentification anonyme est désactivée,
+            // on passe directement à la page de connexion.
+            setUser(null);
+            setUserId(null); // Assure que userId est null si non authentifié
+            setView('login');
+          }
+          setLoading(false);
+        });
+
+        // La logique signInWithCustomToken n'est pas pertinente pour GitHub Pages
+        // car __initial_auth_token n'est pas défini ici.
+        // C'était pour l'environnement Canvas.
+
+        return () => unsubscribe();
+      }, []); // Dépendances vides pour n'exécuter qu'une fois
+
+      if (loading) {
+        return <LoadingSpinner />;
+      }
+
+      // Fonctions de navigation
+      const goToAdultDashboard = () => setView('adultDashboard');
+      const goToChildProfile = (id) => {
+        setSelectedChildId(id);
+        setView('childProfile');
+      };
+      const goToChildView = (id) => {
+        setSelectedChildId(id);
+        setView('childView');
+      };
+      const goToLogin = () => {
+        setSelectedChildId(null);
+        setView('login');
+      };
+
+      const handleLogout = async () => {
+        try {
+          await window.signOut(auth);
+          showMessage("Déconnexion réussie.", clearMessage);
+          goToLogin();
+        } catch (error) {
+          console.error("Erreur de déconnexion:", error);
+          showMessage("Erreur lors de la déconnexion. Veuillez réessayer.", clearMessage);
+        }
+      };
+
+      // Context Provider pour l'authentification et les messages
+      const authContextValue = {
+        user,
+        userId,
+        goToAdultDashboard,
+        goToChildProfile,
+        goToChildView,
+        goToLogin,
+        handleLogout,
+        showMessage,
+        clearMessage
+      };
+
+      return (
+        <AuthContext.Provider value={authContextValue}>
+          <div className="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200 font-inter text-gray-800 antialiased">
+            <MessageBox {...messageBox} />
+            {view === 'login' && <LoginPage />}
+            {view === 'adultDashboard' && user && <AdultDashboard />}
+            {view === 'childProfile' && user && selectedChildId && <ChildProfilePage childId={selectedChildId} />}
+            {view === 'childView' && selectedChildId && <ChildViewPage childId={selectedChildId} />}
+          </div>
+        </AuthContext.Provider>
+      );
+    }
+
+    // Composant LoginPage
+    const LoginPage = () => {
+      const { user, userId, goToChildView, showMessage, clearMessage } = React.useContext(AuthContext);
+      const [email, setEmail] = React.useState('');
+      const [password, setPassword] = React.useState('');
+      const [childPin, setChildPin] = React.useState('');
+      const [isAdultLogin, setIsAdultLogin] = React.useState(true); // true for adult, false for child
+      const [loading, setLoading] = React.useState(false);
+
+      const handleAdultLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          await window.signInWithEmailAndPassword(auth, email, password);
+          // L'onAuthStateChanged dans App.js gérera la navigation
+        } catch (error) {
+          console.error("Erreur de connexion adulte:", error);
+          let errorMessage = "Échec de la connexion.";
+          if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            errorMessage = "Email ou mot de passe incorrect.";
+          } else if (error.code === 'auth/invalid-email') {
+            errorMessage = "Format d'email invalide.";
+          }
+          showMessage(errorMessage, clearMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleAdultSignup = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          const userCredential = await window.createUserWithEmailAndPassword(auth, email, password);
+          const newUserId = userCredential.user.uid;
+
+          // Initialiser les données de l'adulte dans Firestore
+          const userDocRef = window.doc(db, `artifacts/${appId}/users/${newUserId}`);
+          await window.setDoc(userDocRef, {
+            email: email,
+            createdAt: new Date().toISOString(),
+            lastResetDate: new Date().toISOString().substring(0, 7) // Année-Mois
+          });
+
+          // Initialiser les tâches prédéfinies
+          const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${newUserId}/settings/predefinedTasks`);
+          await window.setDoc(predefinedTasksDocRef, {
+            tasks: [
+              { id: 'bed', name: 'Faire son lit', reward: 0.50, ageMin: 6, ageMax: 99 },
+              { id: 'dishes', name: 'Mettre la table', reward: 0.75, ageMin: 4, ageMax: 99 },
+              { id: 'clear_table', name: 'Débarrasser la table', reward: 1.00, ageMin: 6, ageMax: 99 },
+              { id: 'dishwasher', name: 'Vider le lave-vaisselle', reward: 1.50, ageMin: 10, ageMax: 99 },
+              { id: 'trash', name: 'Sortir les poubelles', reward: 1.00, ageMin: 8, ageMax: 99 },
+              { id: 'room', name: 'Ranger sa chambre', reward: 2.00, ageMin: 6, ageMax: 99 }
+            ]
+          });
+
+          showMessage("Compte créé et connecté !", clearMessage);
+        } catch (error) {
+          console.error("Erreur d'inscription adulte:", error);
+          let errorMessage = "Échec de l'inscription.";
+          if (error.code === 'auth/email-already-in-use') {
+            errorMessage = "Cet email est déjà utilisé.";
+          } else if (error.code === 'auth/weak-password') {
+            errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
+          }
+          showMessage(errorMessage, clearMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleChildLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          if (!userId) {
+            showMessage("Veuillez d'abord vous connecter en tant qu'adulte pour que l'enfant puisse se connecter. Si vous êtes l'adulte, connectez-vous ou créez un compte.", clearMessage);
+            setLoading(false);
+            return;
+          }
+
+          const childrenRef = window.collection(db, `artifacts/${appId}/users/${userId}/children`);
+          const querySnapshot = await window.getDocs(childrenRef); // Utilisation de getDocs
+
+          let foundChild = null;
+          querySnapshot.forEach(doc => {
+            const childData = doc.data();
+            if (childData.pin === childPin) {
+              foundChild = { id: doc.id, ...childData };
+            }
+          });
+
+          if (foundChild) {
+            showMessage(`Bienvenue ${foundChild.name} !`, () => {
+              clearMessage();
+              goToChildView(foundChild.id);
+            });
+          } else {
+            showMessage("PIN enfant incorrect ou non trouvé.", clearMessage);
+          }
+        } catch (error) {
+          console.error("Erreur de connexion enfant:", error);
+          showMessage("Erreur lors de la connexion enfant. Veuillez réessayer.", clearMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Afficher l'ID de l'utilisateur actuel pour la fonctionnalité multi-utilisateur
+      const displayUserId = user ? user.uid : "Non connecté";
+
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 p-4">
+          <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+            <h2 className="text-3xl font-extrabold text-center text-purple-700 mb-6">
+              Connectez-vous
+            </h2>
+
+            <div className="flex justify-center mb-6">
+              <button
+                onClick={() => setIsAdultLogin(true)}
+                className={`px-6 py-3 rounded-l-lg font-semibold transition-all duration-300 ${
+                  isAdultLogin ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Adulte
+              </button>
+              <button
+                onClick={() => setIsAdultLogin(false)}
+                className={`px-6 py-3 rounded-r-lg font-semibold transition-all duration-300 ${
+                  !isAdultLogin ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Enfant
+              </button>
+            </div>
+
+            {isAdultLogin ? (
+              <form onSubmit={handleAdultLogin} className="space-y-4">
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="votre.email@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
+                    Mot de passe
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Connexion...' : 'Connexion Adulte'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdultSignup}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 shadow-md mt-2"
+                  disabled={loading}
+                >
+                  {loading ? 'Inscription...' : 'Inscription Adulte'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleChildLogin} className="space-y-4">
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="childPin">
+                    Code PIN Enfant
+                  </label>
+                  <input
+                    type="password" // Use password type for PIN for privacy
+                    id="childPin"
+                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Ex: 1234"
+                    value={childPin}
+                    onChange={(e) => setChildPin(e.target.value)}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Connexion...' : 'Connexion Enfant'}
+                </button>
+                <p className="text-sm text-gray-600 text-center mt-4">
+                  Connectez-vous en tant qu'adulte pour gérer les comptes enfants.
+                </p>
+              </form>
+            )}
+            <p className="text-xs text-gray-500 text-center mt-6 break-words">
+              Votre ID utilisateur: <span className="font-mono text-blue-600">{displayUserId}</span>
+            </p>
+          </div>
+        </div>
+      );
+    };
+
+    // Composant AdultDashboard
+    const AdultDashboard = () => {
+      const { userId, handleLogout, goToChildProfile, showMessage, clearMessage } = React.useContext(AuthContext);
+      const [children, setChildren] = React.useState([]);
+      const [showAddChildModal, setShowAddChildModal] = React.useState(false);
+      const [newChildName, setNewChildName] = React.useState('');
+      const [newChildAge, setNewChildAge] = React.useState('');
+      const [newChildPin, setNewChildPin] = React.useState('');
+      const [loading, setLoading] = React.useState(true);
+
+      // Écoute les changements des enfants en temps réel
+      React.useEffect(() => {
+        if (!userId) {
+          setLoading(false);
+          return;
+        }
+
+        const childrenColRef = window.collection(db, `artifacts/${appId}/users/${userId}/children`);
+        const unsubscribeChildren = window.onSnapshot(childrenColRef, (snapshot) => {
+          const childrenData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setChildren(childrenData);
+          setLoading(false);
+        }, (error) => {
+          console.error("Erreur lors de la récupération des enfants:", error);
+          showMessage("Erreur lors du chargement des enfants. Veuillez réessayer.", clearMessage);
+          setLoading(false);
+        });
+
+        // Vérifier et réinitialiser les cagnottes mensuellement
+        const checkMonthlyReset = async () => {
+          const settingsDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/lastResetDate`);
+          try {
+            const docSnap = await window.getDoc(settingsDocRef);
+            let lastResetDate = docSnap.exists() ? docSnap.data().date : null;
+            const currentMonth = new Date().toISOString().substring(0, 7); // Année-Mois
+
+            if (!lastResetDate || lastResetDate !== currentMonth) {
+              console.log("Réinitialisation mensuelle nécessaire.");
+              // Mettre à jour la date de reset
+              await window.setDoc(settingsDocRef, { date: currentMonth });
+
+              // Réinitialiser les tâches effectuées pour tous les enfants
+              const childDocsSnapshot = await window.getDocs(childrenColRef); // Utilisation de getDocs pour itérer sur les enfants
+              childDocsSnapshot.forEach(async (childDoc) => {
+                const childData = childDoc.data();
+                if (typeof childData.currentAllowance === 'number' && Array.isArray(childData.tasksCompletedThisMonth)) {
+                  await window.updateDoc(window.doc(db, `artifacts/${appId}/users/${userId}/children/${childDoc.id}`), {
+                    tasksCompletedThisMonth: []
+                  });
+                }
+              });
+              showMessage("Les tâches mensuelles ont été réinitialisées.", clearMessage);
+            }
+          } catch (error) {
+            console.error("Erreur lors de la vérification/réinitialisation mensuelle:", error);
+          }
+        };
+
+        checkMonthlyReset();
+
+        return () => unsubscribeChildren();
+      }, [userId]); // S'exécute quand userId change
+
+      const handleAddChild = async (e) => {
+        e.preventDefault();
+        if (!newChildName || !newChildAge || !newChildPin) {
+          showMessage("Veuillez remplir tous les champs pour l'enfant.", clearMessage);
+          return;
+        }
+        if (isNaN(newChildAge) || parseInt(newChildAge) <= 0) {
+          showMessage("L'âge doit être un nombre positif.", clearMessage);
+          return;
+        }
+        if (newChildPin.length < 4 || newChildPin.length > 8 || !/^\d+$/.test(newChildPin)) {
+            showMessage("Le PIN doit être composé de 4 à 8 chiffres.", clearMessage);
+            return;
+        }
+        setLoading(true);
+        try {
+          await window.addDoc(window.collection(db, `artifacts/${appId}/users/${userId}/children`), {
+            name: newChildName,
+            age: parseInt(newChildAge),
+            pin: newChildPin,
+            currentAllowance: 0, // Démarrer avec 0€ dû
+            tasksCompletedThisMonth: [],
+            customTasks: []
+          });
+          setNewChildName('');
+          setNewChildAge('');
+          setNewChildPin('');
+          setShowAddChildModal(false);
+          showMessage("Enfant ajouté avec succès !", clearMessage);
+        } catch (error) {
+          console.error("Erreur lors de l'ajout de l'enfant:", error);
+          showMessage("Erreur lors de l'ajout de l'enfant. Veuillez réessayer.", clearMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleDeleteChild = (childIdToDelete, childName) => {
+        showMessage(
+          `Voulez-vous vraiment supprimer ${childName} ? Toutes les données de cet enfant seront perdues.`,
+          async () => {
+            setLoading(true);
+            try {
+              await window.deleteDoc(window.doc(db, `artifacts/${appId}/users/${userId}/children/${childIdToDelete}`));
+              showMessage(`${childName} a été supprimé.`, clearMessage);
+            } catch (error) {
+              console.error("Erreur lors de la suppression de l'enfant:", error);
+              showMessage("Erreur lors de la suppression. Veuillez réessayer.", clearMessage);
+            } finally {
+              setLoading(false);
+            }
+          },
+          clearMessage,
+          true // Show cancel button
+        );
+      };
+
+      if (loading) {
+        return <LoadingSpinner />;
+      }
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-green-100 to-teal-100 p-6 flex flex-col items-center">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-4xl text-center">
+            <h1 className="text-4xl font-extrabold text-green-700 mb-8">Tableau de bord de l'adulte</h1>
+            <p className="text-lg text-gray-600 mb-6">
+              Gérez ici les cagnottes de vos enfants.
+            </p>
+
+            <p className="text-sm text-gray-500 mb-6 break-words">
+              Votre ID utilisateur: <span className="font-mono text-green-600 font-semibold">{userId}</span>
+            </p>
+
+            <button
+              onClick={() => setShowAddChildModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-8"
+            >
+              Ajouter un enfant
+            </button>
+
+            {showAddChildModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md animate-fade-in-up">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Ajouter un nouvel enfant</h3>
+                  <form onSubmit={handleAddChild} className="space-y-4">
+                    <div>
+                      <label htmlFor="childName" className="block text-gray-700 font-semibold mb-2">Nom de l'enfant</label>
+                      <input
+                        type="text"
+                        id="childName"
+                        value={newChildName}
+                        onChange={(e) => setNewChildName(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200"
+                        placeholder="Ex: Léa"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="childAge" className="block text-gray-700 font-semibold mb-2">Âge</label>
+                      <input
+                        type="number"
+                        id="childAge"
+                        value={newChildAge}
+                        onChange={(e) => setNewChildAge(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200"
+                        placeholder="Ex: 8"
+                        min="1"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="childPin" className="block text-gray-700 font-semibold mb-2">PIN Enfant (4-8 chiffres)</label>
+                      <input
+                        type="password"
+                        id="childPin"
+                        value={newChildPin}
+                        onChange={(e) => setNewChildPin(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition duration-200"
+                        placeholder="Ex: 1234"
+                        maxLength="8"
+                        minLength="4"
+                        required
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-4 mt-6">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddChildModal(false)}
+                        className="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-300 shadow-md"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition duration-300 shadow-md"
+                        disabled={loading}
+                      >
+                        {loading ? 'Ajout en cours...' : 'Ajouter'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {children.length === 0 ? (
+              <p className="text-gray-600 text-xl mt-8">Aucun enfant n'est enregistré. Ajoutez-en un pour commencer !</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                {children.map((child) => (
+                  <div
+                    key={child.id}
+                    className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                  >
+                    <div className="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-500 text-white rounded-full flex items-center justify-center text-4xl font-bold mb-4 shadow-inner">
+                      {child.name.charAt(0).toUpperCase()}
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">{child.name}</h3>
+                    <p className="text-gray-600 text-md">Âge: {child.age} ans</p>
+                    <p className="text-gray-700 text-lg font-semibold mt-2">
+                      Cagnotte actuelle: <span className="text-green-600 text-2xl font-extrabold">{child.currentAllowance.toFixed(2)}€</span>
+                    </p>
+                    <div className="flex space-x-3 mt-5">
+                      <button
+                        onClick={() => goToChildProfile(child.id)}
+                        className="flex-1 px-5 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg shadow-md transition duration-300"
+                      >
+                        Voir profil
+                      </button>
+                      <button
+                        onClick={() => handleDeleteChild(child.id, child.name)}
+                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-md transition duration-300"
+                      >
+                        <svg className="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m14 0H5m14 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v2m3 0V5a1 1 0 011-1h6a1 1 0 011 1v2m-4 4v8m-4-8v8"></path></svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={handleLogout}
+              className="mt-10 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            >
+              Déconnexion
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // Composant ChildProfilePage (vue adulte)
+    const ChildProfilePage = ({ childId }) => {
+      const { userId, goToAdultDashboard, showMessage, clearMessage } = React.useContext(AuthContext);
+      const [child, setChild] = React.useState(null);
+      const [predefinedTasks, setPredefinedTasks] = React.useState([]);
+      const [loading, setLoading] = React.useState(true);
+      const [showAddTaskModal, setShowAddTaskModal] = React.useState(false);
+      const [newCustomTaskName, setNewCustomTaskName] = React.useState('');
+      const [newCustomTaskReward, setNewCustomTaskReward] = React.useState('');
+      const [showEditRewardsModal, setShowEditRewardsModal] = React.useState(false);
+      const [editedPredefinedTasks, setEditedPredefinedTasks] = React.useState([]);
+
+      React.useEffect(() => {
+        if (!userId || !childId) {
+          setLoading(false);
+          return;
+        }
+
+        // Écoute les changements de l'enfant spécifique
+        const childDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
+        const unsubscribeChild = window.onSnapshot(childDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setChild({ id: docSnap.id, ...docSnap.data() });
+          } else {
+            showMessage("Enfant non trouvé.", goToAdultDashboard);
+          }
+          setLoading(false);
+        }, (error) => {
+          console.error("Erreur lors de la récupération de l'enfant:", error);
+          showMessage("Erreur de chargement du profil enfant.", goToAdultDashboard);
+          setLoading(false);
+        });
+
+        // Écoute les changements des tâches prédéfinies
+        const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/predefinedTasks`);
+        const unsubscribePredefinedTasks = window.onSnapshot(predefinedTasksDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const tasks = docSnap.data().tasks || [];
+            setPredefinedTasks(tasks);
+            setEditedPredefinedTasks([...tasks]); // Initialise pour l'édition
+          }
+        }, (error) => {
+          console.error("Erreur lors de la récupération des tâches prédéfinies:", error);
+        });
+
+        return () => {
+          unsubscribeChild();
+          unsubscribePredefinedTasks();
+        };
+      }, [userId, childId]);
+
+      const handleMarkTaskCompleted = async (task, isCustom = false) => {
+        if (!child) return;
+        setLoading(true);
+        try {
+          const childRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
+          const taskEntry = {
+            taskId: task.id,
+            reward: task.reward,
+            date: new Date().toISOString(),
+          };
+          if (isCustom) {
+            taskEntry.customTaskName = task.name;
+          }
+
+          await window.updateDoc(childRef, {
+            currentAllowance: child.currentAllowance + task.reward,
+            tasksCompletedThisMonth: window.arrayUnion(taskEntry)
+          });
+          showMessage(`La tâche "${task.name}" a été marquée comme terminée ! ${task.reward.toFixed(2)}€ ajoutés.`, clearMessage);
+        } catch (error) {
+          console.error("Erreur lors du marquage de la tâche:", error);
+          showMessage("Erreur lors du marquage de la tâche. Veuillez réessayer.", clearMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleAddCustomTask = async (e) => {
+        e.preventDefault();
+        if (!newCustomTaskName || isNaN(parseFloat(newCustomTaskReward)) || parseFloat(newCustomTaskReward) <= 0) {
+          showMessage("Veuillez entrer un nom et une récompense valide pour la tâche personnalisée.", clearMessage);
+          return;
+        }
+        setLoading(true);
+        try {
+          const childRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
+          const newCustomTask = {
+            id: `custom-${Date.now()}`,
+            name: newCustomTaskName,
+            reward: parseFloat(newCustomTaskReward),
+          };
+          await window.updateDoc(childRef, {
+            customTasks: window.arrayUnion(newCustomTask)
+          });
+          setNewCustomTaskName('');
+          setNewCustomTaskReward('');
+          setShowAddTaskModal(false);
+          showMessage("Tâche personnalisée ajoutée !", clearMessage);
+        } catch (error) {
+          console.error("Erreur lors de l'ajout de la tâche personnalisée:", error);
+          showMessage("Erreur lors de l'ajout de la tâche personnalisée. Veuillez réessayer.", clearMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleDeleteCustomTask = (taskId, taskName) => {
+        if (!child) return;
+        showMessage(
+          `Voulez-vous vraiment supprimer la tâche personnalisée "${taskName}" ?`,
+          async () => {
+            setLoading(true);
+            try {
+              const childRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
+              await window.updateDoc(childRef, {
+                customTasks: window.arrayRemove(child.customTasks.find(t => t.id === taskId))
+              });
+              showMessage(`Tâche "${taskName}" supprimée.`, clearMessage);
+            } catch (error) {
+              console.error("Erreur lors de la suppression de la tâche personnalisée:", error);
+              showMessage("Erreur lors de la suppression. Veuillez réessayer.", clearMessage);
+            } finally {
+              setLoading(false);
+            }
+          },
+          clearMessage,
+          true
+        );
+      };
+
+      const handleRewardChange = (id, newReward) => {
+        setEditedPredefinedTasks(prevTasks =>
+          prevTasks.map(task =>
+            task.id === id ? { ...task, reward: parseFloat(newReward) || 0 } : task
+          )
+        );
+      };
+
+      const handleSaveRewards = async () => {
+        setLoading(true);
+        try {
+          const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/predefinedTasks`);
+          await window.setDoc(predefinedTasksDocRef, { tasks: editedPredefinedTasks });
+          setShowEditRewardsModal(false);
+          showMessage("Récompenses mises à jour avec succès !", clearMessage);
+        } catch (error) {
+          console.error("Erreur lors de la sauvegarde des récompenses:", error);
+          showMessage("Erreur lors de la sauvegarde des récompenses. Veuillez réessayer.", clearMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      if (loading) {
+        return <LoadingSpinner />;
+      }
+
+      if (!child) {
+        return (
+          <div className="flex items-center justify-center min-h-screen bg-gray-100">
+            <p className="text-xl text-gray-700">Enfant introuvable.</p>
+            <button onClick={goToAdultDashboard} className="ml-4 px-4 py-2 bg-blue-500 text-white rounded">Retour</button>
+          </div>
+        );
+      }
+
+      // Filtrer les tâches prédéfinies en fonction de l'âge de l'enfant
+      const ageFilteredTasks = predefinedTasks.filter(task =>
+        child.age >= task.ageMin && child.age <= task.ageMax
+      );
+
+      const completedTaskIdsThisMonth = child.tasksCompletedThisMonth.map(t => t.taskId);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-purple-100 p-6 flex flex-col items-center">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-4xl text-center">
+            <h1 className="text-4xl font-extrabold text-indigo-700 mb-4">
+              Profil de {child.name}
+            </h1>
+            <p className="text-xl text-gray-700 mb-6">Âge: {child.age} ans</p>
+            <p className="text-gray-800 text-3xl font-extrabold mb-8">
+              Cagnotte actuelle: <span className="text-green-600">{child.currentAllowance.toFixed(2)}€</span>
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              {/* Section Tâches Prédéfinies */}
+              <div className="bg-blue-50 p-6 rounded-xl shadow-inner border border-blue-200">
+                <h2 className="text-2xl font-bold text-blue-700 mb-4">Tâches ménagères suggérées</h2>
+                <p className="text-sm text-gray-600 mb-4">(Filtrées par l'âge de {child.name})</p>
+                <ul className="space-y-3 mb-6">
+                  {ageFilteredTasks.length === 0 ? (
+                    <p className="text-gray-500">Pas de tâches suggérées pour cet âge.</p>
+                  ) : (
+                    ageFilteredTasks.map((task) => (
+                      <li key={task.id} className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <span className="text-lg font-medium text-gray-800">{task.name}</span>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-purple-600 font-semibold">{task.reward.toFixed(2)}€</span>
+                          <button
+                            onClick={() => handleMarkTaskCompleted(task)}
+                            className={`px-4 py-2 rounded-lg text-white font-semibold transition duration-300 shadow-md ${
+                              completedTaskIdsThisMonth.includes(task.id) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
+                            }`}
+                            disabled={completedTaskIdsThisMonth.includes(task.id)}
+                          >
+                            {completedTaskIdsThisMonth.includes(task.id) ? 'Effectuée ce mois' : 'Marquer comme effectuée'}
+                          </button>
+                        </div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <button
+                  onClick={() => setShowEditRewardsModal(true)}
+                  className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow-md transition duration-300 transform hover:scale-105"
+                >
+                  Modifier les récompenses des tâches prédéfinies
+                </button>
+              </div>
+
+              {/* Section Tâches Personnalisées */}
+              <div className="bg-purple-50 p-6 rounded-xl shadow-inner border border-purple-200">
+                <h2 className="text-2xl font-bold text-purple-700 mb-4">Tâches personnalisées pour {child.name}</h2>
+                <ul className="space-y-3 mb-6">
+                  {child.customTasks && child.customTasks.length === 0 ? (
+                    <p className="text-gray-500">Aucune tâche personnalisée pour cet enfant.</p>
+                  ) : (
+                    child.customTasks.map((task) => (
+                      <li key={task.id} className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <span className="text-lg font-medium text-gray-800">{task.name}</span>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-purple-600 font-semibold">{task.reward.toFixed(2)}€</span>
+                          <button
+                            onClick={() => handleMarkTaskCompleted(task, true)}
+                            className={`px-4 py-2 rounded-lg text-white font-semibold transition duration-300 shadow-md ${
+                                child.tasksCompletedThisMonth.some(t => t.customTaskName === task.name) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
+                            }`}
+                            disabled={child.tasksCompletedThisMonth.some(t => t.customTaskName === task.name)}
+                          >
+                            {child.tasksCompletedThisMonth.some(t => t.customTaskName === task.name) ? 'Effectuée ce mois' : 'Marquer comme effectuée'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCustomTask(task.id, task.name)}
+                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition duration-300"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m14 0H5m14 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v2m3 0V5a1 1 0 011-1h6a1 1 0 011 1v2m-4 4v8m-4-8v8"></path></svg>
+                          </button>
+                        </div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <button
+                  onClick={() => setShowAddTaskModal(true)}
+                  className="px-6 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg shadow-md transition duration-300 transform hover:scale-105"
+                >
+                  Ajouter une tâche personnalisée
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={goToAdultDashboard}
+              className="mt-8 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            >
+              Retour au tableau de bord
+            </button>
+          </div>
+
+          {showAddTaskModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md animate-fade-in-up">
+                <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Ajouter une tâche personnalisée</h3>
+                <form onSubmit={handleAddCustomTask} className="space-y-4">
+                  <div>
+                    <label htmlFor="customTaskName" className="block text-gray-700 font-semibold mb-2">Nom de la tâche</label>
+                    <input
+                      type="text"
+                      id="customTaskName"
+                      value={newCustomTaskName}
+                      onChange={(e) => setNewCustomTaskName(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
+                      placeholder="Ex: Aider à jardiner"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="customTaskReward" className="block text-gray-700 font-semibold mb-2">Récompense (€)</label>
+                    <input
+                      type="number"
+                      id="customTaskReward"
+                      value={newCustomTaskReward}
+                      onChange={(e) => setNewCustomTaskReward(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
+                      placeholder="Ex: 2.50"
+                      step="0.01"
+                      min="0.01"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-4 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddTaskModal(false)}
+                      className="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-300 shadow-md"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition duration-300 shadow-md"
+                      disabled={loading}
+                    >
+                      {loading ? 'Ajout en cours...' : 'Ajouter'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {showEditRewardsModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md animate-fade-in-up">
+                <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Modifier les récompenses</h3>
+                <div className="space-y-4">
+                  {editedPredefinedTasks.map(task => (
+                    <div key={task.id} className="flex items-center justify-between">
+                      <label htmlFor={`reward-${task.id}`} className="text-gray-700 font-semibold flex-1">
+                        {task.name} ({task.ageMin}-{task.ageMax} ans)
+                      </label>
+                      <input
+                        type="number"
+                        id={`reward-${task.id}`}
+                        value={task.reward}
+                        onChange={(e) => handleRewardChange(task.id, e.target.value)}
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition duration-200 ml-4"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end space-x-4 mt-8">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditRewardsModal(false)}
+                    className="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-300 shadow-md"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveRewards}
+                    className="px-6 py-3 bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700 transition duration-300 shadow-md"
+                    disabled={loading}
+                  >
+                    {loading ? 'Sauvegarde...' : 'Sauvegarder'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Composant ChildViewPage (vue enfant)
+    const ChildViewPage = ({ childId }) => {
+      const { userId, goToLogin, showMessage, clearMessage } = React.useContext(AuthContext);
+      const [child, setChild] = React.useState(null);
+      const [predefinedTasks, setPredefinedTasks] = React.useState([]);
+      const [loading, setLoading] = React.useState(true);
+
+      React.useEffect(() => {
+        if (!userId || !childId) {
+          setLoading(false);
+          return;
+        }
+
+        // Écoute les changements de l'enfant spécifique
+        const childDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
+        const unsubscribeChild = window.onSnapshot(childDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setChild({ id: docSnap.id, ...docSnap.data() });
+          } else {
+            showMessage("Votre compte enfant n'a pas été trouvé. Veuillez contacter un adulte.", goToLogin);
+          }
+          setLoading(false);
+        }, (error) => {
+          console.error("Erreur lors de la récupération de l'enfant:", error);
+          showMessage("Erreur de chargement de votre profil. Veuillez réessayer.", goToLogin);
+          setLoading(false);
+        });
+
+        // Écoute les changements des tâches prédéfinies
+        const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/predefinedTasks`);
+        const unsubscribePredefinedTasks = window.onSnapshot(predefinedTasksDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setPredefinedTasks(docSnap.data().tasks || []);
+          }
+        }, (error) => {
+          console.error("Erreur lors de la récupération des tâches prédéfinies:", error);
+        });
+
+        return () => {
+          unsubscribeChild();
+          unsubscribePredefinedTasks();
+        };
+      }, [userId, childId]);
+
+      if (loading) {
+        return <LoadingSpinner />;
+      }
+
+      if (!child) {
+        return (
+          <div className="flex items-center justify-center min-h-screen bg-gray-100">
+            <p className="text-xl text-gray-700">Impossible de charger le compte enfant.</p>
+            <button onClick={goToLogin} className="ml-4 px-4 py-2 bg-blue-500 text-white rounded">Retour</button>
+          </div>
+        );
+      }
+
+      const ageFilteredTasks = predefinedTasks.filter(task =>
+        child.age >= task.ageMin && child.age <= task.ageMax
+      );
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-200 to-cyan-200 p-6 flex flex-col items-center">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-3xl text-center">
+            <h1 className="text-4xl font-extrabold text-blue-800 mb-4">
+              Bonjour {child.name} !
+            </h1>
+            <p className="text-xl text-gray-700 mb-6">C'est ton compte pour gérer tes gains de poche.</p>
+
+            <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-6 mb-8 shadow-inner">
+              <p className="text-2xl font-bold text-yellow-800 mb-2">Ta cagnotte actuelle:</p>
+              <p className="text-green-700 text-5xl font-extrabold">{child.currentAllowance.toFixed(2)}€</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Tâches suggérées */}
+              <div className="bg-blue-50 p-6 rounded-xl shadow-inner border border-blue-200">
+                <h2 className="text-2xl font-bold text-blue-700 mb-4">Tâches suggérées</h2>
+                <ul className="space-y-3">
+                  {ageFilteredTasks.length === 0 ? (
+                    <p className="text-gray-500">Pas de tâches suggérées pour ton âge.</p>
+                  ) : (
+                    ageFilteredTasks.map((task) => (
+                      <li key={task.id} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+                        <span className="text-lg font-medium text-gray-800">{task.name}</span>
+                        <span className="text-blue-600 font-semibold">{task.reward.toFixed(2)}€</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+
+              {/* Tâches personnalisées */}
+              <div className="bg-purple-50 p-6 rounded-xl shadow-inner border border-purple-200">
+                <h2 className="text-2xl font-bold text-purple-700 mb-4">Tes tâches personnalisées</h2>
+                <ul className="space-y-3">
+                  {child.customTasks && child.customTasks.length === 0 ? (
+                    <p className="text-gray-500">Pas de tâches personnalisées pour toi.</p>
+                  ) : (
+                    child.customTasks.map((task) => (
+                      <li key={task.id} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+                        <span className="text-lg font-medium text-gray-800">{task.name}</span>
+                        <span className="text-purple-600 font-semibold">{task.reward.toFixed(2)}€</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            {/* Historique des tâches complétées ce mois-ci */}
+            <div className="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200 mb-8">
+              <h2 className="text-2xl font-bold text-gray-700 mb-4">Tâches complétées ce mois-ci</h2>
+              <ul className="space-y-2">
+                {child.tasksCompletedThisMonth && child.tasksCompletedThisMonth.length > 0 ? (
+                  child.tasksCompletedThisMonth.map((task, index) => (
+                    <li key={index} className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                      <span className="text-gray-800">{task.customTaskName || (predefinedTasks.find(t => t.id === task.taskId) ? predefinedTasks.find(t => t.id === task.taskId).name : `Tâche ID: ${task.taskId}`)}</span>
+                      <span className="font-semibold text-green-600">+ {task.reward.toFixed(2)}€</span>
+                      <span className="text-sm text-gray-500 ml-4">{new Date(task.date).toLocaleDateString()}</span>
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-gray-500">Aucune tâche complétée ce mois-ci.</p>
+                )}
+              </ul>
+            </div>
+
+            <button
+              onClick={goToLogin}
+              className="mt-8 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            >
+              Retour à la connexion
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // Rend l'application React dans le DOM
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
