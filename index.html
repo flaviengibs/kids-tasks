@@ -57,7 +57,7 @@
       query,
       onSnapshot,
       arrayUnion,
-      arrayRemove,
+      // arrayRemove, // arrayRemove n'est plus nécessaire pour les tâches personnalisées
       deleteDoc,
       addDoc,
       getDocs
@@ -80,7 +80,7 @@
     window.query = query;
     window.onSnapshot = onSnapshot;
     window.arrayUnion = arrayUnion;
-    window.arrayRemove = arrayRemove;
+    // window.arrayRemove = arrayRemove; // Non utilisé pour les tâches personnalisées après le changement de structure
     window.deleteDoc = deleteDoc;
     window.addDoc = addDoc;
     window.getDocs = getDocs;
@@ -91,7 +91,6 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    // Firebase Configuration - REMPLACER PAR VOTRE CONFIG FIREBASE ICI
     const firebaseConfig = {
       apiKey: "AIzaSyB6CzYe6Fu41lifg4lY6g77YG64ko9WDMI",
       authDomain: "kidscagnotte.firebaseapp.com",
@@ -102,11 +101,10 @@
       measurementId: "G-49K7ZLSRD5"
     };
 
-    // IMPORTANT: Make sure React and ReactDOM are available in this scope
+
     const React = window.React;
     const ReactDOM = window.ReactDOM;
 
-    // Initialisation de Firebase
     let app, db, auth;
     try {
       app = window.initializeApp(firebaseConfig);
@@ -119,10 +117,8 @@
     const appId = firebaseConfig.projectId || 'default-app-id';
     const initialAuthToken = null;
 
-    // Context d'authentification
     const AuthContext = React.createContext(null);
 
-    // Composant pour le message box (remplace alert/confirm)
     const MessageBox = ({ message, onConfirm, onCancel, showCancel = false }) => {
       if (!message) return null;
 
@@ -151,21 +147,19 @@
       );
     };
 
-    // Composant de Spinner de chargement
     const LoadingSpinner = () => (
       <div className="flex items-center justify-center h-screen bg-gray-100">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
       </div>
     );
 
-    // Composant principal de l'application
     function App() {
-      const [user, setUser] = React.useState(null); // Utilisateur Firebase authentifié (adulte)
-      const [userId, setUserId] = React.useState(null); // ID de l'utilisateur Firebase (adulte)
-      const [loading, setLoading] = React.useState(true); // État de chargement initial de l'authentification
-      const [view, setView] = React.useState('login'); // 'login', 'adultDashboard', 'childProfile', 'childView'
-      const [selectedChildId, setSelectedChildId] = React.useState(null); // ID de l'enfant sélectionné
-      const [parentUserIdForChildView, setParentUserIdForChildView] = React.useState(null); // ID du parent pour la vue enfant
+      const [user, setUser] = React.useState(null);
+      const [userId, setUserId] = React.useState(null);
+      const [loading, setLoading] = React.useState(true);
+      const [view, setView] = React.useState('login');
+      const [selectedChildId, setSelectedChildId] = React.useState(null);
+      const [parentUserIdForChildView, setParentUserIdForChildView] = React.useState(null);
       const [messageBox, setMessageBox] = React.useState({ message: '', onConfirm: null, onCancel: null, showCancel: false });
 
       const showMessage = (message, onConfirmCallback, onCancelCallback = null, showCancelButton = false) => {
@@ -189,7 +183,6 @@
           }
           setLoading(false);
         });
-
         return () => unsubscribe();
       }, []);
 
@@ -198,22 +191,22 @@
       }
 
       const goToAdultDashboard = () => {
-        setParentUserIdForChildView(null); // Réinitialiser en quittant la vue enfant
+        setParentUserIdForChildView(null);
         setView('adultDashboard');
       }
       const goToChildProfile = (id) => {
         setSelectedChildId(id);
-        setParentUserIdForChildView(userId); // Quand l'adulte va sur le profil de l'enfant, l'ID parent est l'ID de l'adulte connecté
+        setParentUserIdForChildView(userId);
         setView('childProfile');
       };
-      const goToChildView = (id, parentId) => { // Accepte aussi l'ID du parent lors de la connexion enfant
+      const goToChildView = (id, parentId) => {
         setSelectedChildId(id);
-        setParentUserIdForChildView(parentId); // Définir l'ID du parent pour la vue enfant
+        setParentUserIdForChildView(parentId);
         setView('childView');
       };
       const goToLogin = () => {
         setSelectedChildId(null);
-        setParentUserIdForChildView(null); // Réinitialiser l'ID parent lors de la déconnexion
+        setParentUserIdForChildView(null);
         setView('login');
       };
 
@@ -231,8 +224,8 @@
       const authContextValue = {
         user,
         userId,
-        parentUserIdForChildView, // Ajouté au contexte
-        setParentUserIdForChildView, // Ajouté au contexte
+        parentUserIdForChildView,
+        setParentUserIdForChildView,
         goToAdultDashboard,
         goToChildProfile,
         goToChildView,
@@ -255,13 +248,12 @@
       );
     }
 
-    // Composant LoginPage
     const LoginPage = () => {
       const { user, goToChildView, showMessage, clearMessage, setParentUserIdForChildView } = React.useContext(AuthContext);
       const [email, setEmail] = React.useState('');
       const [password, setPassword] = React.useState('');
       const [childPin, setChildPin] = React.useState('');
-      const [parentUserIdInput, setParentUserIdInput] = React.useState(''); // Nouveau champ pour l'ID parent
+      const [parentUserIdInput, setParentUserIdInput] = React.useState('');
       const [isAdultLogin, setIsAdultLogin] = React.useState(true);
       const [loading, setLoading] = React.useState(false);
 
@@ -335,29 +327,32 @@
                 return;
             }
 
-            const childrenRef = window.collection(db, `artifacts/${appId}/users/${parentUserIdInput}/children`);
-            const childrenSnapshot = await window.getDocs(childrenRef);
+            // Tentative de lire le document spécifique de l'enfant sous l'ID parent fourni
+            const childDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdInput}/children/${childPin}`); // Utilise le PIN comme ID de document pour la simplicité, mais un ID unique réel serait mieux
+            const childDocSnap = await window.getDoc(childDocRef);
 
             let foundChild = null;
-            childrenSnapshot.forEach(childDoc => {
-                const childData = childDoc.data();
-                if (childData.pin === childPin) {
-                    foundChild = { id: childDoc.id, ...childData };
-                }
-            });
+            if (childDocSnap.exists() && childDocSnap.data().pin === childPin) { // Vérifie si le doc existe et si le PIN correspond
+                foundChild = { id: childDocSnap.id, ...childDocSnap.data() };
+            }
 
             if (foundChild) {
-                setParentUserIdForChildView(parentUserIdInput); // Définit l'ID du parent dans le contexte de l'application
+                setParentUserIdForChildView(parentUserIdInput);
                 showMessage(`Bienvenue ${foundChild.name} !`, () => {
                     clearMessage();
-                    goToChildView(foundChild.id, parentUserIdInput); // Passe l'ID parent à goToChildView
+                    goToChildView(foundChild.id, parentUserIdInput);
                 });
             } else {
-                showMessage("PIN enfant ou ID parent incorrect.", clearMessage);
+                showMessage("PIN enfant ou ID parent incorrect. Veuillez vérifier.", clearMessage);
             }
         } catch (error) {
             console.error("Erreur de connexion enfant:", error);
-            showMessage("Erreur lors de la connexion enfant. Veuillez réessayer.", clearMessage);
+            // Vérifier si l'erreur est une permission insuffisante
+            if (error.code === 'permission-denied' || error.code === 'resource-exhausted') {
+                showMessage("Erreur de permissions Firebase. Assurez-vous que l'ID parent est correct et que les règles Firestore sont à jour. Sinon, contactez l'administrateur.", clearMessage);
+            } else {
+                showMessage("Erreur lors de la connexion enfant. Veuillez réessayer.", clearMessage);
+            }
         } finally {
           setLoading(false);
         }
@@ -559,13 +554,23 @@
         }
         setLoading(true);
         try {
-          await window.addDoc(window.collection(db, `artifacts/${appId}/users/${userId}/children`), {
+          // Utilise le PIN comme ID de document pour l'enfant.
+          // Cela permet une recherche directe dans handleChildLogin.
+          // Assurez-vous que les PINs sont uniques par parent.
+          const childDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${newChildPin}`);
+          const docSnap = await window.getDoc(childDocRef);
+          if (docSnap.exists()) {
+              showMessage("Un enfant avec ce PIN existe déjà pour ce compte parent. Veuillez choisir un PIN différent.", clearMessage);
+              setLoading(false);
+              return;
+          }
+
+          await window.setDoc(childDocRef, { // Utilise setDoc au lieu de addDoc pour définir l'ID
             name: newChildName,
             age: parseInt(newChildAge),
-            pin: newChildPin,
+            pin: newChildPin, // Le PIN est aussi stocké dans le document
             currentAllowance: 0,
             tasksCompletedThisMonth: [],
-            customTasks: []
           });
           setNewChildName('');
           setNewChildAge('');
@@ -654,7 +659,7 @@
                       />
                     </div>
                     <div>
-                      <label htmlFor="childPin" className="block text-gray-700 font-semibold mb-2">PIN Enfant (4-8 chiffres)</label>
+                      <label htmlFor="childPin" className="block text-gray-700 font-semibold mb-2">PIN Enfant (4-8 chiffres, unique)</label>
                       <input
                         type="password"
                         id="childPin"
@@ -740,6 +745,7 @@
       const { userId, goToAdultDashboard, showMessage, clearMessage } = React.useContext(AuthContext);
       const [child, setChild] = React.useState(null);
       const [predefinedTasks, setPredefinedTasks] = React.useState([]);
+      const [customTasks, setCustomTasks] = React.useState([]); // État pour les tâches personnalisées partagées
       const [loading, setLoading] = React.useState(true);
       const [showAddTaskModal, setShowAddTaskModal] = React.useState(false);
       const [newCustomTaskName, setNewCustomTaskName] = React.useState('');
@@ -778,9 +784,19 @@
           console.error("Erreur lors de la récupération des tâches prédéfinies:", error);
         });
 
+        // Écoute les changements des tâches personnalisées partagées
+        const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/settings/customTasks`);
+        const unsubscribeCustomTasks = window.onSnapshot(customTasksColRef, (snapshot) => {
+          const tasksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setCustomTasks(tasksData);
+        }, (error) => {
+          console.error("Erreur lors de la récupération des tâches personnalisées:", error);
+        });
+
         return () => {
           unsubscribeChild();
           unsubscribePredefinedTasks();
+          unsubscribeCustomTasks(); // Nettoyage de l'écouteur
         };
       }, [userId, childId]);
 
@@ -790,6 +806,7 @@
         try {
           const childRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
           const taskEntry = {
+            completionId: Date.now(), // ID unique pour chaque complétion
             taskId: task.id,
             reward: task.reward,
             date: new Date().toISOString(),
@@ -800,7 +817,7 @@
 
           await window.updateDoc(childRef, {
             currentAllowance: child.currentAllowance + task.reward,
-            tasksCompletedThisMonth: window.arrayUnion(taskEntry)
+            tasksCompletedThisMonth: window.arrayUnion(taskEntry) // arrayUnion fonctionnera car completionId est unique
           });
           showMessage(`La tâche "${task.name}" a été marquée comme terminée ! ${task.reward.toFixed(2)}€ ajoutés.`, clearMessage);
         } catch (error) {
@@ -819,14 +836,10 @@
         }
         setLoading(true);
         try {
-          const childRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
-          const newCustomTask = {
-            id: `custom-${Date.now()}`,
+          const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/settings/customTasks`);
+          await window.addDoc(customTasksColRef, {
             name: newCustomTaskName,
             reward: parseFloat(newCustomTaskReward),
-          };
-          await window.updateDoc(childRef, {
-            customTasks: window.arrayUnion(newCustomTask)
           });
           setNewCustomTaskName('');
           setNewCustomTaskReward('');
@@ -841,16 +854,13 @@
       };
 
       const handleDeleteCustomTask = (taskId, taskName) => {
-        if (!child) return;
         showMessage(
           `Voulez-vous vraiment supprimer la tâche personnalisée "${taskName}" ?`,
           async () => {
             setLoading(true);
             try {
-              const childRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${childId}`);
-              await window.updateDoc(childRef, {
-                customTasks: window.arrayRemove(child.customTasks.find(t => t.id === taskId))
-              });
+              const customTaskDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/customTasks/${taskId}`);
+              await window.deleteDoc(customTaskDocRef);
               showMessage(`Tâche "${taskName}" supprimée.`, clearMessage);
             } catch (error) {
               console.error("Erreur lors de la suppression de la tâche personnalisée:", error);
@@ -904,8 +914,6 @@
         child.age >= task.ageMin && child.age <= task.ageMax
       );
 
-      const completedTaskIdsThisMonth = child.tasksCompletedThisMonth.map(t => t.taskId);
-
       return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-purple-100 p-6 flex flex-col items-center">
           <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-4xl text-center">
@@ -933,12 +941,9 @@
                           <span className="text-purple-600 font-semibold">{task.reward.toFixed(2)}€</span>
                           <button
                             onClick={() => handleMarkTaskCompleted(task)}
-                            className={`px-4 py-2 rounded-lg text-white font-semibold transition duration-300 shadow-md ${
-                              completedTaskIdsThisMonth.includes(task.id) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
-                            }`}
-                            disabled={completedTaskIdsThisMonth.includes(task.id)}
+                            className="px-4 py-2 rounded-lg text-white font-semibold bg-green-500 hover:bg-green-600 transition duration-300 shadow-md"
                           >
-                            {completedTaskIdsThisMonth.includes(task.id) ? 'Effectuée ce mois' : 'Marquer comme effectuée'}
+                            Marquer comme effectuée
                           </button>
                         </div>
                       </li>
@@ -955,24 +960,21 @@
 
               {/* Section Tâches Personnalisées */}
               <div className="bg-purple-50 p-6 rounded-xl shadow-inner border border-purple-200">
-                <h2 className="text-2xl font-bold text-purple-700 mb-4">Tâches personnalisées pour {child.name}</h2>
+                <h2 className="text-2xl font-bold text-purple-700 mb-4">Tâches personnalisées pour la famille</h2>
                 <ul className="space-y-3 mb-6">
-                  {child.customTasks && child.customTasks.length === 0 ? (
-                    <p className="text-gray-500">Aucune tâche personnalisée pour cet enfant.</p>
+                  {customTasks.length === 0 ? (
+                    <p className="text-gray-500">Aucune tâche personnalisée n'a été ajoutée.</p>
                   ) : (
-                    child.customTasks.map((task) => (
+                    customTasks.map((task) => (
                       <li key={task.id} className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                         <span className="text-lg font-medium text-gray-800">{task.name}</span>
                         <div className="flex items-center space-x-3">
                           <span className="text-purple-600 font-semibold">{task.reward.toFixed(2)}€</span>
                           <button
                             onClick={() => handleMarkTaskCompleted(task, true)}
-                            className={`px-4 py-2 rounded-lg text-white font-semibold transition duration-300 shadow-md ${
-                                child.tasksCompletedThisMonth.some(t => t.customTaskName === task.name) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
-                            }`}
-                            disabled={child.tasksCompletedThisMonth.some(t => t.customTaskName === task.name)}
+                            className="px-4 py-2 rounded-lg text-white font-semibold bg-green-500 hover:bg-green-600 transition duration-300 shadow-md"
                           >
-                            {child.tasksCompletedThisMonth.some(t => t.customTaskName === task.name) ? 'Effectuée ce mois' : 'Marquer comme effectuée'}
+                            Marquer comme effectuée
                           </button>
                           <button
                             onClick={() => handleDeleteCustomTask(task.id, task.name)}
@@ -1102,50 +1104,62 @@
 
     // Composant ChildViewPage (vue enfant)
     const ChildViewPage = ({ childId }) => {
-      // parentUserIdForChildView est maintenant passé via le contexte depuis App.js
       const { parentUserIdForChildView, goToLogin, showMessage, clearMessage } = React.useContext(AuthContext);
       const [child, setChild] = React.useState(null);
       const [predefinedTasks, setPredefinedTasks] = React.useState([]);
+      const [customTasks, setCustomTasks] = React.useState([]); // État pour les tâches personnalisées partagées
       const [loading, setLoading] = React.useState(true);
 
       React.useEffect(() => {
-        const fetchChildData = async () => {
+        const fetchData = async () => {
           setLoading(true);
           try {
-            // S'assurer que parentUserIdForChildView est disponible pour la requête Firestore
             if (!parentUserIdForChildView || !childId) {
               showMessage("ID parent ou enfant manquant. Veuillez vous reconnecter.", goToLogin);
               setLoading(false);
               return;
             }
 
+            // Récupérer le document de l'enfant
             const childDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdForChildView}/children/${childId}`);
-            const docSnap = await window.getDoc(childDocRef);
+            const childDocSnap = await window.getDoc(childDocRef);
 
-            if (docSnap.exists()) {
-              setChild({ id: docSnap.id, ...docSnap.data() });
+            if (childDocSnap.exists()) {
+              setChild({ id: childDocSnap.id, ...childDocSnap.data() });
 
+              // Récupérer les tâches prédéfinies du parent
               const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdForChildView}/settings/predefinedTasks`);
               const tasksSnap = await window.getDoc(predefinedTasksDocRef);
               if (tasksSnap.exists()) {
                 setPredefinedTasks(tasksSnap.data().tasks || []);
               }
+
+              // Récupérer les tâches personnalisées partagées du parent
+              const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${parentUserIdForChildView}/settings/customTasks`);
+              const customTasksSnap = await window.getDocs(customTasksColRef);
+              const customTasksData = customTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setCustomTasks(customTasksData);
+
             } else {
               showMessage("Votre compte enfant n'a pas été trouvé. Veuillez contacter un adulte.", goToLogin);
             }
           } catch (error) {
             console.error("Erreur lors de la récupération des données enfant:", error);
-            showMessage("Erreur de chargement de votre profil. Veuillez réessayer.", goToLogin);
+            // Afficher un message plus spécifique en cas d'erreur de permission
+            if (error.code === 'permission-denied' || error.code === 'resource-exhausted') {
+                showMessage("Erreur de permissions. Assurez-vous que les règles Firestore sont à jour. Contactez l'adulte si le problème persiste.", goToLogin);
+            } else {
+                showMessage("Erreur de chargement de votre profil. Veuillez réessayer.", goToLogin);
+            }
           } finally {
             setLoading(false);
           }
         };
 
-        // Déclencher la récupération des données seulement si childId et parentUserIdForChildView sont présents
         if (childId && parentUserIdForChildView) {
-          fetchChildData();
+          fetchData();
         } else {
-          setLoading(false); // Arrêter le chargement si les données ne sont pas prêtes
+          setLoading(false);
         }
 
       }, [childId, parentUserIdForChildView, showMessage, goToLogin]);
@@ -1155,7 +1169,7 @@
         return <LoadingSpinner />;
       }
 
-      if (!child || !parentUserIdForChildView) { // Vérifier aussi parentUserIdForChildView ici
+      if (!child || !parentUserIdForChildView) {
         return (
           <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <p className="text-xl text-gray-700">Impossible de charger le compte enfant.</p>
@@ -1201,12 +1215,12 @@
 
               {/* Tâches personnalisées */}
               <div className="bg-purple-50 p-6 rounded-xl shadow-inner border border-purple-200">
-                <h2 className="text-2xl font-bold text-purple-700 mb-4">Tes tâches personnalisées</h2>
+                <h2 className="text-2xl font-bold text-purple-700 mb-4">Tâches personnalisées pour la famille</h2>
                 <ul className="space-y-3">
-                  {child.customTasks && child.customTasks.length === 0 ? (
-                    <p className="text-gray-500">Pas de tâches personnalisées pour toi.</p>
+                  {customTasks.length === 0 ? (
+                    <p className="text-gray-500">Aucune tâche personnalisée n'a été ajoutée par l'adulte.</p>
                   ) : (
-                    child.customTasks.map((task) => (
+                    customTasks.map((task) => (
                       <li key={task.id} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-100">
                         <span className="text-lg font-medium text-gray-800">{task.name}</span>
                         <span className="text-purple-600 font-semibold">{task.reward.toFixed(2)}€</span>
@@ -1219,11 +1233,12 @@
 
             {/* Historique des tâches complétées ce mois-ci */}
             <div className="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200 mb-8">
-              <h2 className="text-2xl font-bold text-gray-700 mb-4">Tâches complétées ce mois-ci</h2>
+              <h2 className="text-2xl font-bold text-gray-700 mb-4">Tes tâches complétées ce mois-ci</h2>
               <ul className="space-y-2">
                 {child.tasksCompletedThisMonth && child.tasksCompletedThisMonth.length > 0 ? (
-                  child.tasksCompletedThisMonth.map((task, index) => (
-                    <li key={index} className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                  // Tri des tâches par date pour un affichage plus clair
+                  [...child.tasksCompletedThisMonth].sort((a, b) => new Date(b.date) - new Date(a.date)).map((task, index) => (
+                    <li key={task.completionId || index} className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
                       <span className="text-gray-800">{task.customTaskName || (predefinedTasks.find(t => t.id === task.taskId) ? predefinedTasks.find(t => t.id === task.taskId).name : `Tâche ID: ${task.taskId}`)}</span>
                       <span className="font-semibold text-green-600">+ {task.reward.toFixed(2)}€</span>
                       <span className="text-sm text-gray-500 ml-4">{new Date(task.date).toLocaleDateString()}</span>
@@ -1246,7 +1261,6 @@
       );
     };
 
-    // Rend l'application React dans le DOM
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
