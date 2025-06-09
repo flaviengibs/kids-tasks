@@ -116,6 +116,19 @@
     const appId = firebaseConfig.projectId || 'default-app-id';
     const initialAuthToken = null;
 
+    // Définition UNIQUE et GLOBALE de la liste des tâches prédéfinies
+    // Toute modification de cette liste doit être faite ICI.
+    const GLOBAL_PREDEFINED_TASKS = [
+      { name: 'Faire son lit', reward: 0.50, ageMin: 6, ageMax: 99 },
+      { name: 'Mettre la table', reward: 0.75, ageMin: 4, ageMax: 99 },
+      { name: 'Débarrasser la table', reward: 1.00, ageMin: 6, ageMax: 99 },
+      { name: 'Vider le lave-vaisselle', reward: 1.50, ageMin: 10, ageMax: 99 },
+      { name: 'Sortir les poubelles', reward: 1.00, ageMin: 8, ageMax: 99 },
+      { name: 'Ranger sa chambre', reward: 2.00, ageMin: 6, ageMax: 99 },
+      { name: 'Arroser les plantes', reward: 0.80, ageMin: 7, ageMax: 99 },
+      { name: 'Nourrir l\'animal', reward: 0.60, ageMin: 5, ageMax: 99 }
+    ];
+
     const AuthContext = React.createContext(null);
 
     const MessageBox = ({ message, onConfirm, onCancel, showCancel = false }) => {
@@ -290,19 +303,9 @@
             lastResetDate: new Date().toISOString().substring(0, 7) // Année-Mois
           });
 
-          // Initialiser les tâches prédéfinies dans leur propre collection
+          // Initialiser les tâches prédéfinies en utilisant la liste GLOBALE
           const predefinedTasksCollectionRef = window.collection(db, `artifacts/${appId}/users/${newUserId}/predefinedTasks`);
-          const initialPredefinedTasks = [
-            { name: 'Faire son lit', reward: 0.50, ageMin: 6, ageMax: 99 },
-            { name: 'Mettre la table', reward: 0.75, ageMin: 4, ageMax: 99 },
-            { name: 'Débarrasser la table', reward: 1.00, ageMin: 6, ageMax: 99 },
-            { name: 'Vider le lave-vaisselle', reward: 1.50, ageMin: 10, ageMax: 99 },
-            { name: 'Sortir les poubelles', reward: 1.00, ageMin: 8, ageMax: 99 },
-            { name: 'Ranger sa chambre', reward: 2.00, ageMin: 6, ageMax: 99 },
-            { name: 'Arroser les plantes', reward: 0.80, ageMin: 7, ageMax: 99 },
-            { name: 'Nourrir l\'animal', reward: 0.60, ageMin: 5, ageMax: 99 }
-          ];
-          for (const task of initialPredefinedTasks) {
+          for (const task of GLOBAL_PREDEFINED_TASKS) { // Utilisation de la liste globale
               await window.addDoc(predefinedTasksCollectionRef, task);
           }
 
@@ -518,16 +521,19 @@
           showMessage("Erreur lors du chargement des enfants. Veuillez réessayer.", clearMessage);
           setLoading(false);
         });
+
+        // Fonction pour initialiser ou mettre à jour les tâches prédéfinies pour les comptes existants
         const initializeOrUpdatePredefinedTasks = async () => {
           const predefinedTasksCollectionRef = window.collection(db, `artifacts/${appId}/users/${userId}/predefinedTasks`);
-          // Utilisez GLOBAL_PREDEFINED_TASKS ici aussi
-          const initialPredefinedTasks = GLOBAL_PREDEFINED_TASKS; // Référence à la liste globale
+          // Utilise la liste globale des tâches prédéfinies
+          const initialPredefinedTasks = GLOBAL_PREDEFINED_TASKS;
 
           try {
             const existingTasksSnapshot = await window.getDocs(predefinedTasksCollectionRef);
             const existingTaskNames = new Set(existingTasksSnapshot.docs.map(doc => doc.data().name));
 
             for (const task of initialPredefinedTasks) {
+              // Si la tâche n'existe pas encore dans la collection, l'ajouter
               if (!existingTaskNames.has(task.name)) {
                 await window.addDoc(predefinedTasksCollectionRef, task);
                 console.log(`Tâche prédéfinie "${task.name}" ajoutée.`);
@@ -539,7 +545,7 @@
           }
         };
 
-        // Appeler cette fonction au montage du composant
+        // Appeler cette fonction au montage du composant AdultDashboard
         initializeOrUpdatePredefinedTasks();
         
         const checkMonthlyReset = async () => {
