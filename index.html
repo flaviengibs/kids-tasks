@@ -57,7 +57,6 @@
       query,
       onSnapshot,
       arrayUnion,
-      // arrayRemove, // arrayRemove n'est plus nécessaire pour les tâches personnalisées
       deleteDoc,
       addDoc,
       getDocs
@@ -80,7 +79,6 @@
     window.query = query;
     window.onSnapshot = onSnapshot;
     window.arrayUnion = arrayUnion;
-    // window.arrayRemove = arrayRemove; // Non utilisé pour les tâches personnalisées après le changement de structure
     window.deleteDoc = deleteDoc;
     window.addDoc = addDoc;
     window.getDocs = getDocs;
@@ -91,16 +89,15 @@
   <div id="root"></div>
 
   <script type="text/babel">
+    // Firebase Configuration - REMPLACER PAR VOTRE CONFIG FIREBASE ICI
     const firebaseConfig = {
-      apiKey: "AIzaSyB6CzYe6Fu41lifg4lY6g77YG64ko9WDMI",
-      authDomain: "kidscagnotte.firebaseapp.com",
-      projectId: "kidscagnotte",
-      storageBucket: "kidscagnotte.firebasestorage.app",
-      messagingSenderId: "533044691595",
-      appId: "1:533044691595:web:03bfd7d1e02b86689dca8e",
-      measurementId: "G-49K7ZLSRD5"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
-
 
     const React = window.React;
     const ReactDOM = window.ReactDOM;
@@ -283,24 +280,27 @@
           const userCredential = await window.createUserWithEmailAndPassword(auth, email, password);
           const newUserId = userCredential.user.uid;
 
-          const userDocRef = window.doc(db, `artifacts/${appId}/users/${newUserId}`);
-          await window.setDoc(userDocRef, {
-            email: email,
+          // Initialiser le document 'settings'
+          const settingsDocRef = window.doc(db, `artifacts/${appId}/users/${newUserId}/settings`);
+          await window.setDoc(settingsDocRef, {
+            email: email, // Peut être stocké ici aussi pour la référence
             createdAt: new Date().toISOString(),
-            lastResetDate: new Date().toISOString().substring(0, 7)
+            lastResetDate: new Date().toISOString().substring(0, 7) // Année-Mois
           });
 
-          const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${newUserId}/settings/predefinedTasks`);
-          await window.setDoc(predefinedTasksDocRef, {
-            tasks: [
-              { id: 'bed', name: 'Faire son lit', reward: 0.50, ageMin: 6, ageMax: 99 },
-              { id: 'dishes', name: 'Mettre la table', reward: 0.75, ageMin: 4, ageMax: 99 },
-              { id: 'clear_table', name: 'Débarrasser la table', reward: 1.00, ageMin: 6, ageMax: 99 },
-              { id: 'dishwasher', name: 'Vider le lave-vaisselle', reward: 1.50, ageMin: 10, ageMax: 99 },
-              { id: 'trash', name: 'Sortir les poubelles', reward: 1.00, ageMin: 8, ageMax: 99 },
-              { id: 'room', name: 'Ranger sa chambre', reward: 2.00, ageMin: 6, ageMax: 99 }
-            ]
-          });
+          // Initialiser les tâches prédéfinies dans leur propre collection
+          const predefinedTasksCollectionRef = window.collection(db, `artifacts/${appId}/users/${newUserId}/predefinedTasks`);
+          const initialPredefinedTasks = [
+            { name: 'Faire son lit', reward: 0.50, ageMin: 6, ageMax: 99 },
+            { name: 'Mettre la table', reward: 0.75, ageMin: 4, ageMax: 99 },
+            { name: 'Débarrasser la table', reward: 1.00, ageMin: 6, ageMax: 99 },
+            { name: 'Vider le lave-vaisselle', reward: 1.50, ageMin: 10, ageMax: 99 },
+            { name: 'Sortir les poubelles', reward: 1.00, ageMin: 8, ageMax: 99 },
+            { name: 'Ranger sa chambre', reward: 2.00, ageMin: 6, ageMax: 99 }
+          ];
+          for (const task of initialPredefinedTasks) {
+              await window.addDoc(predefinedTasksCollectionRef, task);
+          }
 
           showMessage("Compte créé et connecté !", clearMessage);
         } catch (error) {
@@ -327,12 +327,22 @@
                 return;
             }
 
+            // Vérifier si le document 'settings' du parent existe pour valider l'ID parent
+            const parentSettingsDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdInput}/settings`);
+            const parentSettingsSnap = await window.getDoc(parentSettingsDocRef);
+            if (!parentSettingsSnap.exists()) {
+                showMessage("ID parent incorrect ou inexistant. Veuillez vérifier.", clearMessage);
+                setLoading(false);
+                return;
+            }
+
             // Tentative de lire le document spécifique de l'enfant sous l'ID parent fourni
-            const childDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdInput}/children/${childPin}`); // Utilise le PIN comme ID de document pour la simplicité, mais un ID unique réel serait mieux
+            const childDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdInput}/children/${childPin}`);
             const childDocSnap = await window.getDoc(childDocRef);
 
             let foundChild = null;
-            if (childDocSnap.exists() && childDocSnap.data().pin === childPin) { // Vérifie si le doc existe et si le PIN correspond
+            // Vérifie si le doc existe et si le PIN correspond
+            if (childDocSnap.exists() && childDocSnap.data().pin === childPin) {
                 foundChild = { id: childDocSnap.id, ...childDocSnap.data() };
             }
 
@@ -343,11 +353,10 @@
                     goToChildView(foundChild.id, parentUserIdInput);
                 });
             } else {
-                showMessage("PIN enfant ou ID parent incorrect. Veuillez vérifier.", clearMessage);
+                showMessage("PIN enfant incorrect. Veuillez vérifier.", clearMessage);
             }
         } catch (error) {
             console.error("Erreur de connexion enfant:", error);
-            // Vérifier si l'erreur est une permission insuffisante
             if (error.code === 'permission-denied' || error.code === 'resource-exhausted') {
                 showMessage("Erreur de permissions Firebase. Assurez-vous que l'ID parent est correct et que les règles Firestore sont à jour. Sinon, contactez l'administrateur.", clearMessage);
             } else {
@@ -507,15 +516,15 @@
         });
 
         const checkMonthlyReset = async () => {
-          const settingsDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/lastResetDate`);
+          const settingsDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings`);
           try {
             const docSnap = await window.getDoc(settingsDocRef);
-            let lastResetDate = docSnap.exists() ? docSnap.data().date : null;
+            let lastResetDate = docSnap.exists() ? docSnap.data().lastResetDate : null; // Lire le champ du document settings
             const currentMonth = new Date().toISOString().substring(0, 7);
 
             if (!lastResetDate || lastResetDate !== currentMonth) {
               console.log("Réinitialisation mensuelle nécessaire.");
-              await window.setDoc(settingsDocRef, { date: currentMonth });
+              await window.updateDoc(settingsDocRef, { lastResetDate: currentMonth }); // Mettre à jour le champ du document settings
 
               const childDocsSnapshot = await window.getDocs(childrenColRef);
               childDocsSnapshot.forEach(async (childDoc) => {
@@ -554,9 +563,6 @@
         }
         setLoading(true);
         try {
-          // Utilise le PIN comme ID de document pour l'enfant.
-          // Cela permet une recherche directe dans handleChildLogin.
-          // Assurez-vous que les PINs sont uniques par parent.
           const childDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/children/${newChildPin}`);
           const docSnap = await window.getDoc(childDocRef);
           if (docSnap.exists()) {
@@ -565,10 +571,10 @@
               return;
           }
 
-          await window.setDoc(childDocRef, { // Utilise setDoc au lieu de addDoc pour définir l'ID
+          await window.setDoc(childDocRef, {
             name: newChildName,
             age: parseInt(newChildAge),
-            pin: newChildPin, // Le PIN est aussi stocké dans le document
+            pin: newChildPin,
             currentAllowance: 0,
             tasksCompletedThisMonth: [],
           });
@@ -745,7 +751,7 @@
       const { userId, goToAdultDashboard, showMessage, clearMessage } = React.useContext(AuthContext);
       const [child, setChild] = React.useState(null);
       const [predefinedTasks, setPredefinedTasks] = React.useState([]);
-      const [customTasks, setCustomTasks] = React.useState([]); // État pour les tâches personnalisées partagées
+      const [customTasks, setCustomTasks] = React.useState([]);
       const [loading, setLoading] = React.useState(true);
       const [showAddTaskModal, setShowAddTaskModal] = React.useState(false);
       const [newCustomTaskName, setNewCustomTaskName] = React.useState('');
@@ -773,19 +779,18 @@
           setLoading(false);
         });
 
-        const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/predefinedTasks`);
-        const unsubscribePredefinedTasks = window.onSnapshot(predefinedTasksDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const tasks = docSnap.data().tasks || [];
-            setPredefinedTasks(tasks);
-            setEditedPredefinedTasks([...tasks]);
-          }
+        // Écoute des tâches prédéfinies (collection)
+        const predefinedTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/predefinedTasks`);
+        const unsubscribePredefinedTasks = window.onSnapshot(predefinedTasksColRef, (snapshot) => {
+          const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setPredefinedTasks(tasks);
+          setEditedPredefinedTasks([...tasks]);
         }, (error) => {
           console.error("Erreur lors de la récupération des tâches prédéfinies:", error);
         });
 
-        // Écoute les changements des tâches personnalisées partagées
-        const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/settings/customTasks`);
+        // Écoute des tâches personnalisées partagées (collection)
+        const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/customTasks`);
         const unsubscribeCustomTasks = window.onSnapshot(customTasksColRef, (snapshot) => {
           const tasksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           setCustomTasks(tasksData);
@@ -796,7 +801,7 @@
         return () => {
           unsubscribeChild();
           unsubscribePredefinedTasks();
-          unsubscribeCustomTasks(); // Nettoyage de l'écouteur
+          unsubscribeCustomTasks();
         };
       }, [userId, childId]);
 
@@ -817,7 +822,7 @@
 
           await window.updateDoc(childRef, {
             currentAllowance: child.currentAllowance + task.reward,
-            tasksCompletedThisMonth: window.arrayUnion(taskEntry) // arrayUnion fonctionnera car completionId est unique
+            tasksCompletedThisMonth: window.arrayUnion(taskEntry)
           });
           showMessage(`La tâche "${task.name}" a été marquée comme terminée ! ${task.reward.toFixed(2)}€ ajoutés.`, clearMessage);
         } catch (error) {
@@ -836,7 +841,7 @@
         }
         setLoading(true);
         try {
-          const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/settings/customTasks`);
+          const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/customTasks`);
           await window.addDoc(customTasksColRef, {
             name: newCustomTaskName,
             reward: parseFloat(newCustomTaskReward),
@@ -859,7 +864,7 @@
           async () => {
             setLoading(true);
             try {
-              const customTaskDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/customTasks/${taskId}`);
+              const customTaskDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/customTasks/${taskId}`);
               await window.deleteDoc(customTaskDocRef);
               showMessage(`Tâche "${taskName}" supprimée.`, clearMessage);
             } catch (error) {
@@ -885,8 +890,12 @@
       const handleSaveRewards = async () => {
         setLoading(true);
         try {
-          const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${userId}/settings/predefinedTasks`);
-          await window.setDoc(predefinedTasksDocRef, { tasks: editedPredefinedTasks });
+          // Mettre à jour chaque tâche prédéfinie individuellement dans la collection
+          const predefinedTasksColRef = window.collection(db, `artifacts/${appId}/users/${userId}/predefinedTasks`);
+          for (const task of editedPredefinedTasks) {
+              const taskDocRef = window.doc(predefinedTasksColRef, task.id);
+              await window.updateDoc(taskDocRef, { reward: task.reward });
+          }
           setShowEditRewardsModal(false);
           showMessage("Récompenses mises à jour avec succès !", clearMessage);
         } catch (error) {
@@ -1107,7 +1116,7 @@
       const { parentUserIdForChildView, goToLogin, showMessage, clearMessage } = React.useContext(AuthContext);
       const [child, setChild] = React.useState(null);
       const [predefinedTasks, setPredefinedTasks] = React.useState([]);
-      const [customTasks, setCustomTasks] = React.useState([]); // État pour les tâches personnalisées partagées
+      const [customTasks, setCustomTasks] = React.useState([]);
       const [loading, setLoading] = React.useState(true);
 
       React.useEffect(() => {
@@ -1120,22 +1129,20 @@
               return;
             }
 
-            // Récupérer le document de l'enfant
             const childDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdForChildView}/children/${childId}`);
             const childDocSnap = await window.getDoc(childDocRef);
 
             if (childDocSnap.exists()) {
               setChild({ id: childDocSnap.id, ...childDocSnap.data() });
 
-              // Récupérer les tâches prédéfinies du parent
-              const predefinedTasksDocRef = window.doc(db, `artifacts/${appId}/users/${parentUserIdForChildView}/settings/predefinedTasks`);
-              const tasksSnap = await window.getDoc(predefinedTasksDocRef);
-              if (tasksSnap.exists()) {
-                setPredefinedTasks(tasksSnap.data().tasks || []);
-              }
+              // Récupérer les tâches prédéfinies du parent (collection)
+              const predefinedTasksColRef = window.collection(db, `artifacts/${appId}/users/${parentUserIdForChildView}/predefinedTasks`);
+              const predefinedTasksSnap = await window.getDocs(predefinedTasksColRef);
+              const predefinedTasksData = predefinedTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setPredefinedTasks(predefinedTasksData);
 
-              // Récupérer les tâches personnalisées partagées du parent
-              const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${parentUserIdForChildView}/settings/customTasks`);
+              // Récupérer les tâches personnalisées partagées du parent (collection)
+              const customTasksColRef = window.collection(db, `artifacts/${appId}/users/${parentUserIdForChildView}/customTasks`);
               const customTasksSnap = await window.getDocs(customTasksColRef);
               const customTasksData = customTasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
               setCustomTasks(customTasksData);
@@ -1145,7 +1152,6 @@
             }
           } catch (error) {
             console.error("Erreur lors de la récupération des données enfant:", error);
-            // Afficher un message plus spécifique en cas d'erreur de permission
             if (error.code === 'permission-denied' || error.code === 'resource-exhausted') {
                 showMessage("Erreur de permissions. Assurez-vous que les règles Firestore sont à jour. Contactez l'adulte si le problème persiste.", goToLogin);
             } else {
@@ -1236,7 +1242,6 @@
               <h2 className="text-2xl font-bold text-gray-700 mb-4">Tes tâches complétées ce mois-ci</h2>
               <ul className="space-y-2">
                 {child.tasksCompletedThisMonth && child.tasksCompletedThisMonth.length > 0 ? (
-                  // Tri des tâches par date pour un affichage plus clair
                   [...child.tasksCompletedThisMonth].sort((a, b) => new Date(b.date) - new Date(a.date)).map((task, index) => (
                     <li key={task.completionId || index} className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
                       <span className="text-gray-800">{task.customTaskName || (predefinedTasks.find(t => t.id === task.taskId) ? predefinedTasks.find(t => t.id === task.taskId).name : `Tâche ID: ${task.taskId}`)}</span>
