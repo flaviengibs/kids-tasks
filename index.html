@@ -298,7 +298,8 @@
             { name: 'Débarrasser la table', reward: 1.00, ageMin: 6, ageMax: 99 },
             { name: 'Vider le lave-vaisselle', reward: 1.50, ageMin: 10, ageMax: 99 },
             { name: 'Sortir les poubelles', reward: 1.00, ageMin: 8, ageMax: 99 },
-            { name: 'Ranger sa chambre', reward: 2.00, ageMin: 6, ageMax: 99 }
+            { name: 'Ranger sa chambre', reward: 2.00, ageMin: 6, ageMax: 99 },
+            { name: 'Arroser les plantes', reward: 0.80, ageMin: 7, ageMax: 99 }
           ];
           for (const task of initialPredefinedTasks) {
               await window.addDoc(predefinedTasksCollectionRef, task);
@@ -921,9 +922,9 @@
         );
       }
 
-      const ageFilteredTasks = predefinedTasks.filter(task =>
-        child.age >= task.ageMin && child.age <= task.ageMax
-      );
+    const ageFilteredTasks = predefinedTasks.filter(task =>
+      child.age >= task.ageMin && child.age <= task.ageMax
+    );
 
       return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-purple-100 p-6 flex flex-col items-center">
